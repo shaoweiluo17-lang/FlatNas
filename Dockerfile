@@ -30,6 +30,7 @@ RUN npm ci
 COPY frontend/ .
 
 # Build frontend
+ENV TAILWIND_DISABLE_NATIVE=1
 RUN npm run build-only
 
 # Stage 2: Build Backend
