@@ -89,6 +89,8 @@ func main() {
 	handlers.BindHotHandlers(server)
 	handlers.BindWeatherHandlers(server)
 	handlers.BindRssHandlers(server) // Added RSS handlers
+	handlers.BindMemoHandlers(server)
+	handlers.BindTodoHandlers(server)
 	go server.Serve()
 	defer server.Close()
 

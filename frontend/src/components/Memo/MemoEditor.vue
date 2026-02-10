@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 
-const props = defineProps<{
+defineProps<{
   editable?: boolean;
   placeholder?: string;
+}>();
+
+const emit = defineEmits<{
+  (e: 'focus'): void;
+  (e: 'blur'): void;
+  (e: 'input'): void;
 }>();
 
 const content = defineModel<string>('content');
@@ -21,15 +27,18 @@ const handleInput = () => {
   if (editorRef.value) {
     content.value = editorRef.value.innerHTML;
   }
+  emit('input');
 };
 
 const handleFocus = () => {
   isFocused.value = true;
+  emit('focus');
 };
 
 const handleBlur = () => {
   isFocused.value = false;
   handleInput(); // Ensure sync on blur
+  emit('blur');
 };
 
 const execCommand = (cmd: string, val?: string) => {

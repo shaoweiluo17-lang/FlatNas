@@ -128,7 +128,7 @@
     },
     "wallpaperMobileImageBase": "/mobile_backgrounds",
     "wallpaperPcImageBase": "/backgrounds",
-    "weatherSource": "wttr",
+    "weatherSource": "amap",
     "webGroupPagination": false,
     "webGroupPaginationDisableFlip": false,
     "widgetAreaCols": 4,
@@ -570,7 +570,28 @@
     },
     {
       "colSpan": 1,
-      "data": [],
+      "data": [
+        {
+          "done": false,
+          "id": "1770757933519",
+          "text": "123"
+        },
+        {
+          "done": false,
+          "id": "1770757937351",
+          "text": "侧123"
+        },
+        {
+          "done": false,
+          "id": "1770759830514",
+          "text": "123"
+        },
+        {
+          "done": false,
+          "id": "1770759915272",
+          "text": "123"
+        }
+      ],
       "enable": true,
       "h": 2,
       "id": "w8",
@@ -591,10 +612,9 @@
     {
       "colSpan": 1,
       "data": {
-        "mode": "rich",
-        "rich": "\u003cstrike\u003e1231231231231123\u003c/strike\u003e\u003cdiv\u003e\u003cstrike\u003e1234123123123123123123\u003c/strike\u003e\u003c/div\u003e",
-        "simple": "1.0.76dev\n修改了一些布局\n优化了内外网判定逻辑\n",
-        "version": "v2"
+        "content": "测试1\n",
+        "mode": "simple",
+        "updatedAt": 1770759983509
       },
       "enable": true,
       "h": 2,
@@ -828,7 +848,21 @@
     },
     {
       "colSpan": 1,
-      "data": null,
+      "data": {
+        "apiKey": "",
+        "city": "110101"
+      },
+      "enable": true,
+      "id": "amap-weather-1770753106554",
+      "isPublic": true,
+      "rowSpan": 1,
+      "type": "amap-weather"
+    },
+    {
+      "colSpan": 1,
+      "data": {
+        "useMock": false
+      },
       "enable": false,
       "id": "docker",
       "isPublic": false,

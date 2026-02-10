@@ -24,7 +24,7 @@ const list = ref<RssItem[]>([]);
 const loading = ref(false);
 const errorMsg = ref("");
 let activeCleanup: (() => void) | undefined;
-let refreshTimer: number | undefined;
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 // Get enabled feeds
 const enabledFeeds = computed(() => store.rssFeeds.filter((f) => f.enable));

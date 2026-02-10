@@ -170,7 +170,10 @@ const formatDockerError = (msg: string) => {
   if (!msg) return "";
   const lower = msg.toLowerCase();
   if (lower.includes("docker not available")) {
-    return "Docker 未启用或未配置连接地址";
+    return "Docker 未启用或未配置连接地址。容器部署请挂载 /var/run/docker.sock 并设置 dockerHost=unix:///var/run/docker.sock";
+  }
+  if (lower.includes("docker.sock") || lower.includes("unix:///var/run/docker.sock")) {
+    return "无法连接 Docker Socket，请确认宿主机 Docker 已启动，并在容器中挂载 /var/run/docker.sock";
   }
   if (
     lower.includes("pipe/docker_engine") ||

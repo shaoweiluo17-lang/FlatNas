@@ -540,6 +540,17 @@ const uploadMusic = async (event: Event) => {
   }
 };
 
+const formatDockerConnectionError = (error: string, socketPath?: string) => {
+  const lower = error.toLowerCase();
+  if (lower.includes("docker not available")) {
+    return `Docker 未启用或未配置连接地址。\n容器部署请挂载 /var/run/docker.sock 并设置 dockerHost=unix:///var/run/docker.sock\nSocket: ${socketPath || "-"}`;
+  }
+  if (lower.includes("docker.sock") || lower.includes("unix:///var/run/docker.sock")) {
+    return `无法连接 Docker Socket，请确认宿主机 Docker 已启动，并在容器中挂载 /var/run/docker.sock\nSocket: ${socketPath || "-"}`;
+  }
+  return `连接失败: ${error}\nSocket: ${socketPath || "-"}`;
+};
+
 const checkDockerConnection = async () => {
   try {
     const headers = store.getHeaders();
@@ -550,7 +561,7 @@ const checkDockerConnection = async () => {
         `连接成功!\n\nSocket: ${data.socketPath}\n版本: ${data.version.Version}\n系统: ${data.info.OSType} / ${data.info.Architecture}\n容器: ${data.info.Containers}\n名称: ${data.info.Name}`,
       );
     } else {
-      alert(`连接失败: ${data.error}\nSocket: ${data.socketPath}`);
+      alert(formatDockerConnectionError(data.error || "Docker 不可用", data.socketPath));
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -2383,7 +2394,7 @@ watch(activeTab, (val) => {
                                                             ? "RSS 阅读器"
                                                             : w.type === "system-status"
                                                               ? "宿主机状态"
-                                                              : w.type === "status-monitor"
+                                                                : w.type === "status-monitor"
                                                                 ? "状态监控"
                                                                 : w.type === "iframe"
                                                                   ? "万能窗口"
@@ -2397,7 +2408,9 @@ watch(activeTab, (val) => {
                                                                           ? "自定义组件"
                                                                           : w.type === "music"
                                                                             ? "道理鱼音乐"
-                                                                            : `未知组件 (${w.type})`
+                                                                            : w.type === "amap-weather"
+                                                                              ? "高德天气"
+                                                                              : `未知组件 (${w.type})`
                           }}
                         </span>
                       </template>

@@ -64,7 +64,7 @@ func resolveDockerHost() string {
 	if env := strings.TrimSpace(os.Getenv("DOCKER_HOST")); env != "" {
 		return normalizeDockerHost(env)
 	}
-	return ""
+	return defaultDockerHost()
 }
 
 func normalizeDockerHost(raw string) string {
@@ -96,6 +96,17 @@ func normalizeDockerHost(raw string) string {
 		return "tcp://" + v
 	}
 	return v
+}
+
+func defaultDockerHost() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "npipe:////./pipe/docker_engine"
+	case "linux", "darwin":
+		return "unix:///var/run/docker.sock"
+	default:
+		return ""
+	}
 }
 
 func getDockerClient() *client.Client {

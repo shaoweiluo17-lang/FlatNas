@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import type { WidgetConfig } from "@/types";
 import { useMainStore } from "../stores/main";
 import MemoEditor from "./Memo/MemoEditor.vue";
@@ -13,6 +13,11 @@ const store = useMainStore();
 const mode = ref<"simple" | "rich">("simple");
 const localData = ref(""); // Stores HTML for rich mode or text for simple mode
 const editorRef = ref<InstanceType<typeof MemoEditor> | null>(null);
+const isEditing = ref(false);
+const localUpdatedAt = ref(0);
+const lastInputAt = ref(0);
+const isBroadcasting = ref(false);
+const isPageVisible = ref(document.visibilityState === "visible");
 
 // Persistence
 const { saveToIndexedDB, loadFromIndexedDB, status, progress } = useMemoPersistence(
@@ -44,10 +49,133 @@ const triggerSave = async () => {
     showToast.value = true;
     setTimeout(() => (showToast.value = false), 3000);
   }
+  saveToServer(true);
 };
 
 const toggleMode = () => {
-  mode.value = mode.value === 'simple' ? 'rich' : 'simple';
+  mode.value = mode.value === "simple" ? "rich" : "simple";
+  const payload = buildPayload();
+  localUpdatedAt.value = payload.updatedAt;
+  saveToServer(true);
+  if (store.isLogged) {
+    store.socket?.emit("memo:update", {
+      token: store.token || localStorage.getItem("flat-nas-token"),
+      widgetId: props.widget.id,
+      content: payload,
+    });
+  }
+};
+
+const parsePayload = (payload: WidgetConfig["data"]) => {
+  let content = "";
+  let payloadMode: "simple" | "rich" = mode.value;
+  let updatedAt = 0;
+
+  if (typeof payload === "string") {
+    content = payload;
+  } else if (payload && typeof payload === "object") {
+    const data = payload as Record<string, unknown>;
+    if (typeof data.content === "string") {
+      content = data.content;
+    } else if (typeof data.rich === "string") {
+      content = data.rich;
+    } else if (typeof data.simple === "string") {
+      content = data.simple;
+    }
+    if (data.mode === "simple" || data.mode === "rich") {
+      payloadMode = data.mode;
+    }
+    if (typeof data.updatedAt === "number") {
+      updatedAt = data.updatedAt;
+    }
+  }
+
+  return { content, mode: payloadMode, updatedAt };
+};
+
+const buildPayload = () => ({
+  content: localData.value,
+  mode: mode.value,
+  updatedAt: Date.now(),
+});
+
+let serverSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let broadcastTimer: ReturnType<typeof setTimeout> | null = null;
+const ACTIVE_INPUT_WINDOW = 800;
+const POLL_ACTIVE_INTERVAL = 800;
+const POLL_IDLE_INTERVAL = 5000;
+const saveToServer = (immediate = false) => {
+  if (!store.isLogged) return;
+  const doSave = () => {
+    const payload = buildPayload();
+    localUpdatedAt.value = payload.updatedAt;
+    store.saveWidget(props.widget.id, payload);
+  };
+
+  if (immediate) {
+    doSave();
+    return;
+  }
+
+  if (serverSaveTimer) clearTimeout(serverSaveTimer);
+  serverSaveTimer = setTimeout(() => {
+    serverSaveTimer = null;
+    doSave();
+  }, 800);
+};
+
+const applyRemotePayload = (payload: WidgetConfig["data"]) => {
+  const parsed = parsePayload(payload);
+  if (!parsed.content) return;
+  if (isEditing.value) return;
+  if (parsed.updatedAt && parsed.updatedAt <= localUpdatedAt.value) return;
+  if (parsed.content !== localData.value) {
+    localData.value = parsed.content;
+    mode.value = parsed.mode;
+    localUpdatedAt.value = parsed.updatedAt || Date.now();
+  }
+};
+
+const scheduleBroadcast = () => {
+  if (!isBroadcasting.value || !store.isLogged) return;
+  if (broadcastTimer) clearTimeout(broadcastTimer);
+  broadcastTimer = setTimeout(() => {
+    if (!isBroadcasting.value || !store.isLogged) return;
+    const payload = buildPayload();
+    store.socket?.emit("memo:update", {
+      token: store.token || localStorage.getItem("flat-nas-token"),
+      widgetId: props.widget.id,
+      content: payload,
+    });
+  }, 300);
+};
+
+const updateSyncMode = () => {
+  const active =
+    isEditing.value && Date.now() - lastInputAt.value <= ACTIVE_INPUT_WINDOW;
+  const targetInterval = isPageVisible.value ? POLL_ACTIVE_INTERVAL : POLL_IDLE_INTERVAL;
+  if (active) {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    isBroadcasting.value = true;
+  } else {
+    isBroadcasting.value = false;
+    if (!pollTimer) {
+      pollTimer = setInterval(pollRemote, targetInterval);
+    } else if (pollTimer && targetInterval !== currentPollInterval) {
+      clearInterval(pollTimer);
+      pollTimer = setInterval(pollRemote, targetInterval);
+    }
+  }
+  currentPollInterval = targetInterval;
+};
+
+const handleInputActivity = () => {
+  lastInputAt.value = Date.now();
+  updateSyncMode();
+  scheduleBroadcast();
 };
 
 // Initial Load
@@ -61,6 +189,7 @@ loadFromIndexedDB().then(() => {
         localData.value = d.rich || d.simple || "";
         mode.value = d.mode || "simple";
      }
+     localUpdatedAt.value = Date.now();
   }
 });
 
@@ -68,15 +197,70 @@ loadFromIndexedDB().then(() => {
 // but user data usually needs autosave. The prompt emphasizes the "Persistent Button" feedback.)
 // I will keep manual save for the "Persistent Button" requirement demo, and maybe autosave silently.
 let autoSaveTimer: ReturnType<typeof setTimeout> | undefined;
-watch(localData, () => {
+watch([localData, mode], () => {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(() => {
-    saveToIndexedDB(); // Silent autosave? 
-    // Requirement 4 says "Persistent buttons... give triple feedback". 
-    // It doesn't say autosave must give feedback.
-    // I will use the "Save" button to demonstrate the feedback.
-  }, 5000);
+    saveToIndexedDB();
+    saveToServer();
+  }, 800);
 });
+
+watch(
+  () => props.widget.data,
+  (data) => {
+    if (!data) return;
+    applyRemotePayload(data);
+  }
+);
+
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let idleCheckTimer: ReturnType<typeof setInterval> | null = null;
+let currentPollInterval = POLL_ACTIVE_INTERVAL;
+const handleVisibilityChange = () => {
+  isPageVisible.value = document.visibilityState === "visible";
+  updateSyncMode();
+};
+const pollRemote = async () => {
+  if (!store.isLogged || !store.isConnected || isEditing.value) return;
+  const id = props.widget.id;
+  if (!id) return;
+  if (import.meta.env.MODE === "test") return;
+  try {
+    const res = await fetch(`/api/widgets/${id}`, { headers: store.getHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data?.data) {
+      applyRemotePayload(data.data);
+    }
+  } catch {
+    return;
+  }
+};
+
+onMounted(() => {
+  updateSyncMode();
+  idleCheckTimer = setInterval(updateSyncMode, 1000);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+});
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+  if (idleCheckTimer) clearInterval(idleCheckTimer);
+  if (serverSaveTimer) clearTimeout(serverSaveTimer);
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  if (broadcastTimer) clearTimeout(broadcastTimer);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+});
+
+const handleFocus = () => {
+  isEditing.value = true;
+  updateSyncMode();
+};
+
+const handleBlur = () => {
+  isEditing.value = false;
+  updateSyncMode();
+};
 
 </script>
 
@@ -146,6 +330,9 @@ watch(localData, () => {
             class="w-full h-full bg-transparent resize-none outline-none text-sm placeholder-gray-600 font-medium p-2"
             :placeholder="store.isLogged ? '写点什么...' : '请先登录'"
             :readonly="!store.isLogged"
+            @focus="handleFocus"
+            @blur="handleBlur"
+            @input="handleInputActivity"
           ></textarea>
           
           <MemoEditor
@@ -154,6 +341,9 @@ watch(localData, () => {
             v-model:content="localData"
             :editable="store.isLogged"
             :placeholder="store.isLogged ? '在此输入内容...' : '请先登录'"
+            @focus="handleFocus"
+            @blur="handleBlur"
+            @input="handleInputActivity"
           />
         </div>
       </Transition>

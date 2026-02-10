@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import { ref, watch, type Ref } from 'vue';
+import { ref, type Ref } from 'vue';
 
 const DB_NAME = 'flatnas-memo-db';
 const STORE_NAME = 'memos';
@@ -24,13 +24,14 @@ function generateChecksum(str: string): string {
 }
 
 // Mock Sentry
-const reportError = (error: any, context: string) => {
+const reportError = (error: unknown, context: string) => {
   console.error(`[Sentry Report] ${context}:`, error);
-  // @ts-ignore
-  if (window.Sentry) {
-    // @ts-ignore
-    window.Sentry.captureException(error, { tags: { context } });
-  }
+  const sentry = (window as {
+    Sentry?: {
+      captureException: (err: unknown, options?: { tags?: Record<string, string> }) => void;
+    };
+  }).Sentry;
+  if (sentry) sentry.captureException(error, { tags: { context } });
 };
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
