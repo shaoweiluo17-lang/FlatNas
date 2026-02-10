@@ -1,0 +1,2 @@
+# This directory is for data persistence
+# It will be copied to /opt/flatnas/server/data during deployment
