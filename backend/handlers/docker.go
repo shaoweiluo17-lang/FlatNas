@@ -24,6 +24,7 @@ import (
 
 var dockerClient *client.Client
 var dockerHostUsed string
+var dockerInitError error
 var updateStatus UpdateCheckStatus
 var updateStatusMu sync.RWMutex
 
@@ -31,6 +32,7 @@ func InitDocker() {
 	if !dockerEnabled() {
 		dockerClient = nil
 		dockerHostUsed = ""
+		dockerInitError = nil
 		return
 	}
 	host := resolveDockerHost()
@@ -46,6 +48,9 @@ func InitDocker() {
 	if err != nil {
 		log.Printf("Failed to init docker client: %v", err)
 		dockerClient = nil
+		dockerInitError = err
+	} else {
+		dockerInitError = nil
 	}
 }
 
@@ -142,7 +147,11 @@ func ListContainers(c *gin.Context) {
 	}
 	dc := getDockerClient()
 	if dc == nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "Docker not available", "data": []interface{}{}})
+		errMsg := "Docker not available"
+		if dockerInitError != nil {
+			errMsg = dockerInitError.Error()
+		}
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": errMsg, "data": []interface{}{}})
 		return
 	}
 
@@ -189,7 +198,11 @@ func ContainerAction(c *gin.Context) {
 	}
 	dc := getDockerClient()
 	if dc == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Docker not available"})
+		errMsg := "Docker not available"
+		if dockerInitError != nil {
+			errMsg = dockerInitError.Error()
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsg})
 		return
 	}
 
@@ -223,7 +236,11 @@ func GetDockerInfo(c *gin.Context) {
 	}
 	dc := getDockerClient()
 	if dc == nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "Docker not available", "socketPath": resolveDockerHost()})
+		errMsg := "Docker not available"
+		if dockerInitError != nil {
+			errMsg = dockerInitError.Error()
+		}
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": errMsg, "socketPath": resolveDockerHost()})
 		return
 	}
 	info, err := dc.Info(context.Background())
@@ -251,7 +268,11 @@ func ContainerInspectLite(c *gin.Context) {
 	}
 	dc := getDockerClient()
 	if dc == nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "Docker not available"})
+		errMsg := "Docker not available"
+		if dockerInitError != nil {
+			errMsg = dockerInitError.Error()
+		}
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": errMsg})
 		return
 	}
 	id := c.Param("id")
@@ -303,7 +324,11 @@ func TriggerUpdateCheck(c *gin.Context) {
 	}
 	dc := getDockerClient()
 	if dc == nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "Docker not available"})
+		errMsg := "Docker not available"
+		if dockerInitError != nil {
+			errMsg = dockerInitError.Error()
+		}
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": errMsg})
 		return
 	}
 	updateStatusMu.Lock()
