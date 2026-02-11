@@ -182,6 +182,7 @@ func main() {
 			authorized.GET("/system/stats", handlers.GetSystemStats)
 			authorized.GET("/docker/containers", handlers.ListContainers)
 			authorized.GET("/docker/info", handlers.GetDockerInfo)
+			authorized.GET("/docker/export-logs", handlers.ExportDockerLogs)
 			authorized.GET("/docker/container/:id/inspect-lite", handlers.ContainerInspectLite)
 			authorized.POST("/docker/check-updates", handlers.TriggerUpdateCheck)
 			authorized.POST("/docker/container/:id/:action", handlers.ContainerAction)

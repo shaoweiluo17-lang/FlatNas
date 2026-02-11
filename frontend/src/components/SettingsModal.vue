@@ -569,6 +569,35 @@ const checkDockerConnection = async () => {
   }
 };
 
+const isExportingDockerLogs = ref(false);
+const exportDockerLogs = async () => {
+  if (isExportingDockerLogs.value) return;
+  try {
+    isExportingDockerLogs.value = true;
+    const headers = store.getHeaders();
+    const res = await fetch("/api/docker/export-logs", { headers });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || String(res.status));
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `docker-logs-${ts}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    alert("导出失败: " + msg);
+  } finally {
+    isExportingDockerLogs.value = false;
+  }
+};
+
 // Password Confirm Logic
 const showPasswordConfirm = ref(false);
 const showMultiUserWarning = ref(false);
@@ -2492,6 +2521,13 @@ watch(activeTab, (val) => {
                 Docker 管理 (内测中)
               </h4>
               <div v-if="dockerWidget" class="flex items-center gap-3 text-xs mr-[10px]">
+                <button
+                  @click="exportDockerLogs"
+                  :disabled="isExportingDockerLogs"
+                  class="bg-gray-100 text-gray-900 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors font-bold disabled:opacity-60"
+                >
+                  {{ isExportingDockerLogs ? "导出中" : "导出日志" }}
+                </button>
                 <button
                   @click="checkDockerConnection"
                   class="bg-gray-100 text-gray-900 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors font-bold"
