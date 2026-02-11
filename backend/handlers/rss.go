@@ -126,6 +126,31 @@ func BindRssHandlers(server *socketio.Server) {
 	})
 }
 
+func WarmRssCache(urls []string) {
+	for _, urlStr := range urls {
+		urlStr = strings.TrimSpace(urlStr)
+		if urlStr == "" {
+			continue
+		}
+		rssCacheMutex.RLock()
+		cached, exists := rssCache[urlStr]
+		rssCacheMutex.RUnlock()
+		if exists && time.Now().Before(cached.ExpiresAt) {
+			continue
+		}
+		items, err := fetchRssFeed(urlStr)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+		rssCacheMutex.Lock()
+		rssCache[urlStr] = CachedRssItem{
+			Items:     items,
+			ExpiresAt: time.Now().Add(RssCacheTTL),
+		}
+		rssCacheMutex.Unlock()
+	}
+}
+
 func fetchRssFeed(feedUrl string) ([]UnifiedRssItem, error) {
 	client := http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", feedUrl, nil)

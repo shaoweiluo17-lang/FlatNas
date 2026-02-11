@@ -53,6 +53,273 @@ const { deviceKey, isMobile } = useDevice(toRef(store.appConfig, "deviceMode"));
 const { width, height } = useWindowSize();
 const isHeaderRowLayout = computed(() => width.value >= 1280);
 
+const currentHour = ref(new Date().getHours());
+let daylightTimer: ReturnType<typeof setInterval> | null = null;
+const updateHour = () => {
+  currentHour.value = new Date().getHours();
+};
+const isNightTime = computed(() => currentHour.value >= 18 || currentHour.value < 6);
+const effectiveBackgroundMask = computed(() => {
+  const base = store.appConfig.backgroundMask ?? 0;
+  const daylightMask = store.appConfig.daylightMask ?? 0.5;
+  if (store.appConfig.daylightModeEnabled && isNightTime.value) return daylightMask;
+  return base;
+});
+const effectiveMobileBackgroundMask = computed(() => {
+  const base = store.appConfig.mobileBackgroundMask ?? 0;
+  const daylightMask = store.appConfig.daylightMask ?? 0.5;
+  if (store.appConfig.daylightModeEnabled && isNightTime.value) return daylightMask;
+  return base;
+});
+
+const weatherText = ref("");
+const weatherLoading = ref(false);
+const weatherEffectEnabled = computed(() => !!store.appConfig.weatherEffectEnabled);
+const isRainWeather = computed(() => /雨|雷/.test(weatherText.value || ""));
+const isFogWeather = computed(() => /雾|霾/.test(weatherText.value || ""));
+const showFogEffect = computed(() => weatherEffectEnabled.value && isFogWeather.value);
+const showRainEffect = computed(() => weatherEffectEnabled.value && isRainWeather.value);
+
+const getWeatherCity = () => {
+  try {
+    const cached = localStorage.getItem("flatnas_auto_city");
+    if (cached) {
+      const data = JSON.parse(cached);
+      if (data?.city) return data.city;
+    }
+  } catch {
+    return "Shanghai";
+  }
+  return "Shanghai";
+};
+
+const buildWeatherUrl = (city: string) => {
+  if (store.appConfig.weatherApiUrl) {
+    let url = store.appConfig.weatherApiUrl;
+    if (url.includes("{city}")) {
+      url = url.replace("{city}", encodeURIComponent(city));
+    }
+    return url;
+  }
+  const source = store.appConfig.weatherSource || "uapi";
+  const key = store.appConfig.amapKey || "";
+  const projectId = store.appConfig.qweatherProjectId || "";
+  const keyId = store.appConfig.qweatherKeyId || "";
+  const privateKey = store.appConfig.qweatherPrivateKey || "";
+  let url = `/api/weather?city=${encodeURIComponent(city)}&source=${source}&key=${encodeURIComponent(key)}`;
+  if (source === "qweather") {
+    url += `&projectId=${encodeURIComponent(projectId)}&keyId=${encodeURIComponent(keyId)}&privateKey=${encodeURIComponent(privateKey)}`;
+  }
+  return url;
+};
+
+const fetchWeatherForEffect = async () => {
+  if (!weatherEffectEnabled.value || weatherLoading.value) return;
+  weatherLoading.value = true;
+  const city = getWeatherCity();
+  try {
+    const res = await fetch(buildWeatherUrl(city));
+    if (!res.ok) throw new Error("weather");
+    const data = await res.json();
+    if (data?.data?.text) {
+      weatherText.value = data.data.text;
+    } else if (data?.text) {
+      weatherText.value = data.text;
+    } else if (data?.weather) {
+      weatherText.value = data.weather;
+    } else {
+      weatherText.value = "";
+    }
+  } catch {
+    weatherText.value = "";
+  } finally {
+    weatherLoading.value = false;
+  }
+};
+
+type RainRenderer = { stop: () => void; resize: () => void };
+const rainCanvasRef = ref<HTMLCanvasElement | null>(null);
+const rainRenderer = ref<RainRenderer | null>(null);
+
+const createRainRenderer = (canvas: HTMLCanvasElement): RainRenderer | null => {
+  const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: false });
+  if (!gl) return null;
+
+  const vertexSource = `
+    attribute vec3 a_position;
+    uniform float u_time;
+    uniform float u_speed;
+    varying float v_alpha;
+    void main() {
+      float z = a_position.z;
+      float speed = mix(0.4, 1.2, z) * u_speed;
+      float y = fract(a_position.y - u_time * speed);
+      float x = a_position.x * 2.0 - 1.0;
+      float py = y * 2.0 - 1.0;
+      float depth = mix(0.6, 1.0, z);
+      gl_Position = vec4(x * depth, py * depth, 0.0, 1.0);
+      gl_PointSize = mix(1.0, 4.0, z);
+      v_alpha = mix(0.2, 0.8, z);
+    }
+  `;
+
+  const fragmentSource = `
+    precision mediump float;
+    varying float v_alpha;
+    void main() {
+      vec2 uv = gl_PointCoord;
+      float body = smoothstep(0.0, 0.25, uv.y) * (1.0 - smoothstep(0.75, 1.0, uv.y));
+      float width = smoothstep(0.5, 0.0, abs(uv.x - 0.5));
+      float alpha = body * width * v_alpha;
+      gl_FragColor = vec4(0.7, 0.85, 1.0, alpha);
+    }
+  `;
+
+  const compileShader = (type: number, source: string) => {
+    const shader = gl.createShader(type);
+    if (!shader) return null;
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  };
+
+  const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+  if (!vertexShader || !fragmentShader) return null;
+
+  const program = gl.createProgram();
+  if (!program) return null;
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+
+  const positionLoc = gl.getAttribLocation(program, "a_position");
+  const timeLoc = gl.getUniformLocation(program, "u_time");
+  const speedLoc = gl.getUniformLocation(program, "u_speed");
+
+  const count = 1200;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = Math.random();
+    positions[i * 3 + 1] = Math.random();
+    positions[i * 3 + 2] = Math.random();
+  }
+
+  const buffer = gl.createBuffer();
+  if (!buffer) return null;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
+
+  let running = true;
+  let frame = 0;
+  const start = performance.now();
+
+  const resize = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+    const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  };
+
+  const render = (now: number) => {
+    if (!running) return;
+    const t = (now - start) / 1000;
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+    if (timeLoc) gl.uniform1f(timeLoc, t);
+    if (speedLoc) gl.uniform1f(speedLoc, 0.6);
+    gl.drawArrays(gl.POINTS, 0, count);
+    frame = requestAnimationFrame(render);
+  };
+
+  resize();
+  frame = requestAnimationFrame(render);
+
+  const stop = () => {
+    running = false;
+    cancelAnimationFrame(frame);
+  };
+
+  return { stop, resize };
+};
+
+const initRain = async () => {
+  if (!showRainEffect.value || rainRenderer.value) return;
+  await nextTick();
+  const canvas = rainCanvasRef.value;
+  if (!canvas) return;
+  const renderer = createRainRenderer(canvas);
+  if (!renderer) return;
+  rainRenderer.value = renderer;
+  renderer.resize();
+};
+
+const stopRain = () => {
+  rainRenderer.value?.stop();
+  rainRenderer.value = null;
+};
+
+let weatherTimer: ReturnType<typeof setInterval> | null = null;
+
+watch(
+  () => weatherEffectEnabled.value,
+  (enabled) => {
+    if (enabled) {
+      fetchWeatherForEffect();
+      if (weatherTimer) clearInterval(weatherTimer);
+      weatherTimer = setInterval(fetchWeatherForEffect, 60 * 60 * 1000);
+    } else {
+      if (weatherTimer) clearInterval(weatherTimer);
+      weatherTimer = null;
+      weatherText.value = "";
+      stopRain();
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [
+    store.appConfig.weatherSource,
+    store.appConfig.weatherApiUrl,
+    store.appConfig.amapKey,
+    store.appConfig.qweatherProjectId,
+    store.appConfig.qweatherKeyId,
+    store.appConfig.qweatherPrivateKey,
+  ],
+  () => {
+    if (weatherEffectEnabled.value) fetchWeatherForEffect();
+  },
+);
+
+watch([showRainEffect, () => rainCanvasRef.value], ([show]) => {
+  if (show) {
+    initRain();
+  } else {
+    stopRain();
+  }
+});
+
+watch([width, height], () => {
+  rainRenderer.value?.resize();
+});
+
 const empireBackgroundUrl = `data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4af37' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E`;
 
 const showEditModal = ref(false);
@@ -2044,6 +2311,15 @@ watch(
 
 onMounted(() => {
   fetchHitokoto();
+  updateHour();
+  if (daylightTimer) clearInterval(daylightTimer);
+  daylightTimer = setInterval(updateHour, 60 * 1000);
+});
+
+onUnmounted(() => {
+  if (daylightTimer) clearInterval(daylightTimer);
+  if (weatherTimer) clearInterval(weatherTimer);
+  stopRain();
 });
 </script>
 
@@ -2104,12 +2380,31 @@ onMounted(() => {
         }"
       ></div>
 
+      <!-- 纹理平移图层 -->
+      <div
+        v-if="showRainEffect"
+        class="absolute inset-[-20px] bg-cover bg-center bg-no-repeat animate-texture-pan pointer-events-none"
+        :style="{ backgroundImage: `url('${store.getAssetUrl('/rain-texture.png')}')`, opacity: 0.15 }"
+      ></div>
+
+      <!-- 深度雾层 -->
+      <div
+        v-if="showFogEffect"
+        class="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60 animate-fog-fade pointer-events-none"
+      ></div>
+
+      <canvas
+        ref="rainCanvasRef"
+        class="absolute inset-0 pointer-events-none transition-opacity"
+        :class="showRainEffect ? 'opacity-70' : 'opacity-0'"
+      ></canvas>
+
       <!-- Desktop Mask Layer -->
       <div
         class="absolute inset-0 transition-all duration-300"
         :class="(store.appConfig.enableMobileWallpaper ?? true) ? 'hidden md:block' : 'block'"
         :style="{
-          backgroundColor: `rgba(0,0,0,${store.appConfig.backgroundMask ?? 0})`,
+          backgroundColor: `rgba(0,0,0,${effectiveBackgroundMask})`,
         }"
       ></div>
 
@@ -2118,7 +2413,7 @@ onMounted(() => {
         class="absolute inset-0 transition-all duration-300 md:hidden"
         v-if="store.appConfig.enableMobileWallpaper ?? true"
         :style="{
-          backgroundColor: `rgba(0,0,0,${store.appConfig.mobileBackgroundMask ?? 0})`,
+          backgroundColor: `rgba(0,0,0,${effectiveMobileBackgroundMask})`,
         }"
       ></div>
     </div>
@@ -3391,6 +3686,41 @@ onMounted(() => {
   transform: translateY(6px);
 }
 
+.weather-texture-layer {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.25'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+  mix-blend-mode: screen;
+  animation: weather-texture-pan 18s linear infinite;
+}
+
+.weather-fog-layer {
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(200, 220, 255, 0.35), transparent 55%),
+    radial-gradient(circle at 70% 60%, rgba(180, 210, 255, 0.4), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(120, 140, 170, 0.35));
+  filter: blur(12px);
+  animation: weather-fog-drift 22s ease-in-out infinite;
+}
+
+@keyframes weather-texture-pan {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 240px 240px;
+  }
+}
+
+@keyframes weather-fog-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-3%, 2%, 0);
+  }
+}
+
 :deep(path[class*="fill-sky-100"]),
 :deep(path[class*="fill-blue-100"]),
 :deep(path[class*="fill-blue-50"]),
@@ -3536,5 +3866,20 @@ onMounted(() => {
 /* Docker Status Bars */
 .empire-theme :deep(.bg-gray-200) {
   background-color: rgba(255, 255, 255, 0.1) !important;
+}
+/* Weather Animations */
+.animate-texture-pan {
+  animation: texturePan 15s linear infinite;
+}
+.animate-fog-fade {
+  animation: fogFade 8s ease-in-out infinite alternate;
+}
+@keyframes texturePan {
+  0% { background-position: 0 0; }
+  100% { background-position: 100% 100%; }
+}
+@keyframes fogFade {
+  0% { opacity: 0.3; }
+  100% { opacity: 0.7; }
 }
 </style>

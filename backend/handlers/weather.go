@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -116,6 +117,15 @@ func BindWeatherHandlers(server *socketio.Server) {
 		}
 		s.Emit("weather:data", gin.H{"city": msg.City, "data": data})
 	})
+}
+
+func WarmWeatherCache(payloads []WeatherPayload) {
+	for _, payload := range payloads {
+		if strings.TrimSpace(payload.City) == "" {
+			continue
+		}
+		_, _ = fetchWeatherLogic(payload)
+	}
 }
 
 func GetWeather(c *gin.Context) {

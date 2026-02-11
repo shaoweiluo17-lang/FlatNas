@@ -54,6 +54,7 @@ func Init() {
 
 	ensureDirs()
 	ensureSystemConfig()
+	ensureDataFile()
 	loadSecretKey()
 }
 
@@ -114,6 +115,30 @@ func ensureSystemConfig() {
 	}
 	if err := os.WriteFile(SystemConfigFile, data, 0644); err != nil {
 		log.Printf("Failed to write system config: %v", err)
+	}
+}
+
+func ensureDataFile() {
+	dataFile := filepath.Join(DataDir, "data.json")
+	if _, err := os.Stat(dataFile); err == nil {
+		return
+	} else if !os.IsNotExist(err) {
+		log.Printf("Failed to check data file: %v", err)
+		return
+	}
+
+	defaultData, err := os.ReadFile(DefaultFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("Default template not found: %s", DefaultFile)
+			return
+		}
+		log.Printf("Failed to read default template: %v", err)
+		return
+	}
+
+	if err := os.WriteFile(dataFile, defaultData, 0644); err != nil {
+		log.Printf("Failed to initialize data file: %v", err)
 	}
 }
 

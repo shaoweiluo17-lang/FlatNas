@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useStorage } from "@vueuse/core";
 import { useMainStore } from "../stores/main";
 import type { WidgetConfig, NavGroup, NavItem } from "@/types";
@@ -90,6 +90,24 @@ const resetLatencyThreshold = async () => {
 };
 
 const showWallpaperLibrary = ref(false);
+const currentHour = ref(new Date().getHours());
+let daylightTimer: number | null = null;
+const updateHour = () => {
+  currentHour.value = new Date().getHours();
+};
+const isNightTime = computed(() => currentHour.value >= 18 || currentHour.value < 6);
+const isNightDaylightMode = computed(
+  () => store.appConfig.daylightModeEnabled && isNightTime.value,
+);
+const daylightMaskPercent = computed({
+  get: () => Math.round((store.appConfig.daylightMask ?? 0.5) * 100),
+  set: (val: number) => {
+    const v = Number.isFinite(val) ? val : 50;
+    const clamped = Math.min(100, Math.max(0, v));
+    store.appConfig.daylightMask = clamped / 100;
+    store.saveData();
+  },
+});
 const musicVolume = useStorage<number>("flat-nas-music-volume", 0.7);
 const musicVolumePercent = computed({
   get: () => Math.round((musicVolume.value ?? 0.7) * 100),
@@ -173,6 +191,14 @@ onMounted(async () => {
   // 移除强制恢复逻辑，避免覆盖用户配置
   // const hasDocker = store.widgets.some((w) => w.type === "docker");
   // if (!hasDocker) { ... }
+  updateHour();
+  if (daylightTimer) window.clearInterval(daylightTimer);
+  daylightTimer = window.setInterval(updateHour, 60 * 1000);
+});
+
+onUnmounted(() => {
+  if (daylightTimer) window.clearInterval(daylightTimer);
+  daylightTimer = null;
 });
 
 const testWeatherResult = ref<{ success: boolean; message: string } | null>(null);
@@ -1531,7 +1557,8 @@ watch(activeTab, (val) => {
     </div>
 
     <div
-      class="bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[480px] relative"
+      class="backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[480px] relative"
+      :class="isNightDaylightMode ? 'night-settings bg-slate-900/60 text-slate-100 border border-white/10' : 'bg-white/90'"
       :style="{ transform: `translate(${modalPosition.x}px, ${modalPosition.y}px)` }"
       @wheel.stop
     >
@@ -1552,7 +1579,7 @@ watch(activeTab, (val) => {
       </button>
 
       <div
-        class="w-full md:w-1/4 bg-transparent border-b md:border-b-0 md:border-r border-gray-100 p-4 flex flex-col md:flex-col shrink-0 cursor-move"
+        class="w-full md:w-1/4 bg-transparent border-b md:border-b-0 md:border-r border-gray-100 p-4 flex flex-col md:flex-col shrink-0 cursor-move glass-panel"
         @mousedown="onMouseDown"
       >
         <h3 class="text-xl font-bold text-gray-900 mb-4 md:mb-6 px-2">设置</h3>
@@ -1569,7 +1596,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'style'"
             :class="
               activeTab === 'style'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors mb-0 md:mb-1"
@@ -1580,7 +1607,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'widgets'"
             :class="
               activeTab === 'widgets'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors mb-0 md:mb-1"
@@ -1592,7 +1619,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'universal-window'"
             :class="
               activeTab === 'universal-window'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors mb-0 md:mb-1"
@@ -1603,7 +1630,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'docker'"
             :class="
               activeTab === 'docker'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors mb-0 md:mb-1"
@@ -1614,7 +1641,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'account'"
             :class="
               activeTab === 'account'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors"
@@ -1626,7 +1653,7 @@ watch(activeTab, (val) => {
             :class="[
               'px-4 py-2 text-sm transition-colors text-left flex items-center gap-2',
               activeTab === 'network'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50',
             ]"
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 rounded-lg mb-0 md:mb-1"
@@ -1637,7 +1664,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'lucky-stun'"
             :class="
               activeTab === 'lucky-stun'
-                ? 'border border-black text-gray-900 font-bold bg-transparent'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-gray-600 hover:bg-gray-50'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors mb-0 md:mb-1"
@@ -1648,7 +1675,7 @@ watch(activeTab, (val) => {
             @click="activeTab = 'about'"
             :class="
               activeTab === 'about'
-                ? 'border border-red-500 text-red-600 font-bold bg-red-50'
+                ? 'selected-outline text-gray-900'
                 : 'border border-transparent text-red-500 hover:bg-red-50 font-medium'
             "
             class="whitespace-nowrap md:whitespace-normal w-auto md:w-full shrink-0 text-left px-4 py-2 rounded-lg text-sm transition-colors"
@@ -1661,7 +1688,7 @@ watch(activeTab, (val) => {
         </div>
       </div>
 
-      <div class="flex-1 flex flex-col bg-transparent overflow-hidden">
+      <div class="flex-1 flex flex-col bg-transparent overflow-hidden glass-panel">
         <div class="flex-1 p-4 overflow-y-auto overscroll-contain" @wheel.stop>
           <div v-if="activeTab === 'style'" class="space-y-4">
             <div class="bg-white/60 border border-gray-100 rounded-xl p-4">
@@ -1708,6 +1735,74 @@ watch(activeTab, (val) => {
                         管理壁纸库
                       </button>
                     </div>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between rounded-xl border border-gray-100 bg-white/70 px-3 py-2">
+                    <div class="flex flex-col">
+                      <span class="text-sm font-medium text-gray-700">白昼模式</span>
+                      <span class="text-[11px] text-gray-400"
+                        >白天 6:00-18:00，夜间 18:00-6:00 自动调整遮罩为
+                        {{ daylightMaskPercent }}%</span
+                      >
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-white/80 text-gray-700"
+                      >
+                        <input
+                          v-model.number="daylightMaskPercent"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          class="w-12 text-xs bg-transparent outline-none"
+                        />
+                        <span class="text-xs">%</span>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          class="sr-only peer"
+                          :checked="store.appConfig.daylightModeEnabled"
+                          @change="
+                            (e) => {
+                              store.appConfig.daylightModeEnabled = (
+                                e.target as HTMLInputElement
+                              ).checked;
+                              store.saveData();
+                            }
+                          "
+                        />
+                        <div
+                          class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-400"
+                        ></div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between rounded-xl border border-gray-100 bg-white/70 px-3 py-2">
+                    <div class="flex flex-col">
+                      <span class="text-sm font-medium text-gray-700">环境天气效果</span>
+                      <span class="text-[11px] text-gray-400">雨天自动开启背景雨效</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        class="sr-only peer"
+                        :checked="store.appConfig.weatherEffectEnabled"
+                        @change="
+                          (e) => {
+                            store.appConfig.weatherEffectEnabled = (
+                              e.target as HTMLInputElement
+                            ).checked;
+                            store.saveData();
+                          }
+                        "
+                      />
+                      <div
+                        class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"
+                      ></div>
+                    </label>
                   </div>
                 </div>
                 <div>
@@ -1759,7 +1854,7 @@ watch(activeTab, (val) => {
                     class="flex-1 p-2 border-2 rounded-xl flex items-center justify-center gap-2 transition-colors"
                     :class="
                       store.appConfig.titleAlign === 'left'
-                        ? 'border-gray-900 bg-gray-100 text-gray-900 font-bold'
+                        ? 'selected-outline text-gray-900'
                         : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
                     "
                   >
@@ -1770,7 +1865,7 @@ watch(activeTab, (val) => {
                     class="flex-1 p-2 border-2 rounded-xl flex items-center justify-center gap-2 transition-colors"
                     :class="
                       store.appConfig.titleAlign === 'right'
-                        ? 'border-gray-900 bg-gray-100 text-gray-900 font-bold'
+                        ? 'selected-outline text-gray-900'
                         : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
                     "
                   >
@@ -1783,7 +1878,7 @@ watch(activeTab, (val) => {
                     class="hidden xl:flex flex-1 p-2 border-2 rounded-xl items-center justify-center gap-2 transition-colors"
                     :class="
                       store.appConfig.hideHeaderOnMobile
-                        ? 'border-gray-900 bg-gray-100 text-gray-900 font-bold'
+                        ? 'selected-outline text-gray-900'
                         : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
                     "
                   >
@@ -2118,7 +2213,7 @@ watch(activeTab, (val) => {
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                       <label
-                        class="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-1 whitespace-nowrap"
+                        class="px-3 py-1.5 text-gray-700 text-xs rounded-lg cursor-pointer transition-colors flex items-center gap-1 whitespace-nowrap glass-chip selectable-outline"
                       >
                         <span>上传音乐</span>
                         <input
@@ -2132,7 +2227,7 @@ watch(activeTab, (val) => {
                       <button
                         type="button"
                         @click="toggleMusicManager"
-                        class="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-1 whitespace-nowrap"
+                        class="px-3 py-1.5 text-gray-700 text-xs rounded-lg cursor-pointer transition-colors flex items-center gap-1 whitespace-nowrap glass-chip selectable-outline"
                       >
                         {{ musicManagerOpen ? "收起文件" : "文件管理" }} ({{ musicFiles.length }})
                       </button>
@@ -2524,13 +2619,13 @@ watch(activeTab, (val) => {
                 <button
                   @click="exportDockerLogs"
                   :disabled="isExportingDockerLogs"
-                  class="bg-gray-100 text-gray-900 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors font-bold disabled:opacity-60"
+                  class="text-gray-900 px-3 py-1 rounded-lg transition-colors font-bold disabled:opacity-60 glass-chip selectable-outline"
                 >
                   {{ isExportingDockerLogs ? "导出中" : "导出日志" }}
                 </button>
                 <button
                   @click="checkDockerConnection"
-                  class="bg-gray-100 text-gray-900 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors font-bold"
+                  class="text-gray-900 px-3 py-1 rounded-lg transition-colors font-bold glass-chip selectable-outline"
                 >
                   测试连接
                 </button>
@@ -2805,10 +2900,10 @@ watch(activeTab, (val) => {
                 <h4 class="text-base font-bold text-gray-900 border-l-4 border-gray-900 pl-3">
                   万能窗口
                 </h4>
-                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">可多开</span>
+                <span class="text-xs text-gray-500 px-2 py-1 rounded-full glass-chip selected-outline">可多开</span>
                 <button
                   @click="addIframeWidget"
-                  class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 ml-2"
+                  class="px-3 py-1.5 text-xs font-medium text-gray-900 rounded-lg transition-colors flex items-center gap-1 ml-2 glass-chip selectable-outline"
                 >
                   <span class="text-base leading-none">+</span> 新增窗口
                 </button>
@@ -2818,7 +2913,7 @@ watch(activeTab, (val) => {
             <template v-for="w in store.widgets" :key="'iframe-' + w.id">
               <div
                 v-if="w.type === 'iframe'"
-                class="flatnas-handshake-signal flex flex-col gap-3 p-4 border border-gray-100 rounded-xl bg-gray-50 hover:bg-white hover:shadow-md transition-all"
+                class="flatnas-handshake-signal flex flex-col gap-3 p-4 border border-gray-100 rounded-xl hover:shadow-md transition-all glass-card"
               >
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-4">
@@ -2925,7 +3020,7 @@ watch(activeTab, (val) => {
                       class="block text-xs font-bold text-gray-600 mb-1 flex items-center gap-1"
                     >
                       <span>内网地址 (LAN URL)</span>
-                      <span class="text-[10px] font-normal text-gray-400 bg-gray-100 px-1.5 rounded"
+                      <span class="text-[10px] font-normal text-gray-400 px-1.5 rounded glass-chip selected-outline"
                         >内网优先</span
                       >
                     </label>
@@ -2971,10 +3066,10 @@ watch(activeTab, (val) => {
                 <h4 class="text-base font-bold text-gray-900 border-l-4 border-gray-900 pl-3">
                   高德天气
                 </h4>
-                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">可多开</span>
+                <span class="text-xs text-gray-500 px-2 py-1 rounded-full glass-chip selected-outline">可多开</span>
                 <button
                   @click="addAmapWeatherWidget"
-                  class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 ml-2"
+                  class="px-3 py-1.5 text-xs font-medium text-gray-900 rounded-lg transition-colors flex items-center gap-1 ml-2 glass-chip selectable-outline"
                 >
                   <span class="text-base leading-none">+</span> 新增天气
                 </button>
@@ -3043,10 +3138,10 @@ watch(activeTab, (val) => {
                 <h4 class="text-base font-bold text-gray-900 border-l-4 border-gray-900 pl-3">
                   倒计时
                 </h4>
-                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">可多开</span>
+                <span class="text-xs text-gray-500 px-2 py-1 rounded-full glass-chip selected-outline">可多开</span>
                 <button
                   @click="addCountdownWidget"
-                  class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 ml-2"
+                  class="px-3 py-1.5 text-xs font-medium text-gray-900 rounded-lg transition-colors flex items-center gap-1 ml-2 glass-chip selectable-outline"
                 >
                   <span class="text-base leading-none">+</span> 新增倒计时
                 </button>
@@ -3152,10 +3247,10 @@ watch(activeTab, (val) => {
                 <h4 class="text-base font-bold text-gray-900 border-l-4 border-gray-900 pl-3">
                   正计时
                 </h4>
-                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">可多开</span>
+                <span class="text-xs text-gray-500 px-2 py-1 rounded-full glass-chip selected-outline">可多开</span>
                 <button
                   @click="addCountUpWidget"
-                  class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1 ml-2"
+                  class="px-3 py-1.5 text-xs font-medium text-gray-900 rounded-lg transition-colors flex items-center gap-1 ml-2 glass-chip selectable-outline"
                 >
                   <span class="text-base leading-none">+</span> 新增正计时
                 </button>
@@ -4220,7 +4315,7 @@ document.querySelector('.card-item').addEventListener('click', () => {
 
               <button
                 @click="store.logout"
-                class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold border border-gray-200 hover:bg-gray-200 transition-colors"
+                class="w-full text-gray-700 py-3 rounded-xl font-bold border border-gray-200 transition-colors glass-chip selectable-outline"
               >
                 退出登录
               </button>
@@ -4503,5 +4598,62 @@ document.querySelector('.card-item').addEventListener('click', () => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+.night-settings {
+  color: #f8fafc;
+}
+.night-settings :deep(.bg-white\/90),
+.night-settings :deep(.bg-white\/70),
+.night-settings :deep(.bg-white\/60),
+.night-settings :deep(.bg-white),
+.night-settings :deep(.bg-gray-50),
+.night-settings :deep(.bg-gray-100) {
+  background-color: rgba(15, 23, 42, 0.55) !important;
+  backdrop-filter: blur(12px);
+}
+.night-settings :deep(.text-gray-900),
+.night-settings :deep(.text-gray-800),
+.night-settings :deep(.text-gray-700),
+.night-settings :deep(.text-gray-600),
+.night-settings :deep(.text-gray-500),
+.night-settings :deep(.text-gray-400) {
+  color: #f8fafc !important;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.6);
+}
+.night-settings :deep(.border-gray-100),
+.night-settings :deep(.border-gray-200),
+.night-settings :deep(.border-gray-300),
+.night-settings :deep(.border-gray-400) {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.night-settings :deep(input::placeholder),
+.night-settings :deep(textarea::placeholder) {
+  color: rgba(248, 250, 252, 0.6);
+}
+.glass-panel,
+.glass-card,
+.glass-chip {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.glass-chip:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+.night-settings :deep(.glass-panel),
+.night-settings :deep(.glass-card),
+.night-settings :deep(.glass-chip) {
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.selected-outline {
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+  font-weight: 700;
+}
+.selectable-outline:focus-visible,
+.selectable-outline:active {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
 }
 </style>

@@ -26,6 +26,7 @@ func main() {
 	config.Init()
 	handlers.InitDocker()
 	handlers.StartIPFetcher()
+	handlers.StartDataWarmup()
 
 	r := gin.New()
 	r.Use(gin.Logger())

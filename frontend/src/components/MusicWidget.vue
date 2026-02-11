@@ -716,16 +716,19 @@ const fetchTracks = async () => {
     }
 
     if (res.status === 401) {
-      // Token expired or invalid, try login again
       await login();
       res = await fetch(url, {
         headers: getHeaders(),
       });
     }
 
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
-    const data = await res.json();
-    const list = normalizeList(data);
+    const isDefaultApi = API_BASE.value === "/api" || API_BASE.value === "/api/";
+    const allowMusicListFallback =
+      isDefaultApi && !currentPlaylistId.value && libraryMode.value === "songs";
+
+    if (!res.ok && !allowMusicListFallback) throw new Error(`API Error: ${res.status}`);
+
+    const list = res.ok ? normalizeList(await res.json()) : [];
 
     // Extra fallback for albums if list is empty
     if (list.length === 0 && libraryMode.value === "albums" && currentAlbumId.value) {
@@ -760,9 +763,7 @@ const fetchTracks = async () => {
       }
     }
 
-    // FlatNas Native Fallback: Try /api/music-list if still empty and using default API
-    const isDefaultApi = API_BASE.value === "/api" || API_BASE.value === "/api/";
-    if (tracks.value.length === 0 && !currentPlaylistId.value && isDefaultApi) {
+    if (tracks.value.length === 0 && allowMusicListFallback) {
       try {
         const res = await fetch(`${API_BASE.value}/music-list`, { headers: getHeaders() });
         if (res.ok) {

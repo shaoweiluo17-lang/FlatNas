@@ -148,7 +148,7 @@ export const useMainStore = defineStore("main", () => {
   };
 
   // Version Check
-  const currentVersion = "1.1.1dev5";
+  const currentVersion = "1.1.1dev6";
   const latestVersion = ref("");
   const dockerUpdateAvailable = ref(false);
   const updateCheckLastAt = useStorage<number>("flat-nas-update-check-last-at", 0);
@@ -239,6 +239,9 @@ export const useMainStore = defineStore("main", () => {
     backgroundMask: 0,
     mobileBackgroundBlur: 0,
     mobileBackgroundMask: 0,
+    daylightModeEnabled: false,
+    daylightMask: 0.5,
+    weatherEffectEnabled: false,
     customTitle: "我的导航",
     titleAlign: "left",
     titleSize: 48,

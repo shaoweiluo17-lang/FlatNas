@@ -5,7 +5,10 @@ import (
 	"flatnasgo-backend/models"
 	"flatnasgo-backend/utils"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -340,4 +343,128 @@ func UpdateSystemConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, sysConfig)
+}
+
+func StartDataWarmup() {
+	go func() {
+		dataFile := filepath.Join(config.DataDir, "data.json")
+		if _, err := os.Stat(dataFile); err != nil {
+			if os.IsNotExist(err) {
+				time.Sleep(5 * time.Second)
+			} else {
+				return
+			}
+		}
+
+		var payload map[string]interface{}
+		if err := utils.ReadJSON(dataFile, &payload); err != nil {
+			return
+		}
+
+		rssUrls := extractRssUrls(payload)
+		if len(rssUrls) > 0 {
+			WarmRssCache(rssUrls)
+		}
+
+		weatherPayloads := extractWeatherPayloads(payload)
+		if len(weatherPayloads) > 0 {
+			WarmWeatherCache(weatherPayloads)
+		}
+	}()
+}
+
+func extractRssUrls(payload map[string]interface{}) []string {
+	feeds, ok := payload["rssFeeds"].([]interface{})
+	if !ok {
+		return nil
+	}
+	urls := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, feed := range feeds {
+		fm, ok := feed.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		enabled, _ := fm["enable"].(bool)
+		if !enabled {
+			continue
+		}
+		url, _ := fm["url"].(string)
+		url = strings.TrimSpace(url)
+		if url == "" {
+			continue
+		}
+		if _, exists := seen[url]; exists {
+			continue
+		}
+		seen[url] = struct{}{}
+		urls = append(urls, url)
+	}
+	return urls
+}
+
+type weatherKey struct {
+	city       string
+	source     string
+	key        string
+	projectId  string
+	keyId      string
+	privateKey string
+}
+
+func extractWeatherPayloads(payload map[string]interface{}) []WeatherPayload {
+	appConfig, _ := payload["appConfig"].(map[string]interface{})
+	source, _ := appConfig["weatherSource"].(string)
+	key, _ := appConfig["amapKey"].(string)
+	projectId, _ := appConfig["qweatherProjectId"].(string)
+	keyId, _ := appConfig["qweatherKeyId"].(string)
+	privateKey, _ := appConfig["qweatherPrivateKey"].(string)
+
+	widgets, ok := payload["widgets"].([]interface{})
+	if !ok {
+		return nil
+	}
+	payloads := make([]WeatherPayload, 0)
+	seen := make(map[weatherKey]struct{})
+	for _, widget := range widgets {
+		wm, ok := widget.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		enabled, _ := wm["enable"].(bool)
+		if !enabled {
+			continue
+		}
+		wType, _ := wm["type"].(string)
+		if wType != "weather" && wType != "clockweather" {
+			continue
+		}
+		data, _ := wm["data"].(map[string]interface{})
+		city, _ := data["city"].(string)
+		city = strings.TrimSpace(city)
+		if city == "" {
+			continue
+		}
+		keyObj := weatherKey{
+			city:       city,
+			source:     source,
+			key:        key,
+			projectId:  projectId,
+			keyId:      keyId,
+			privateKey: privateKey,
+		}
+		if _, exists := seen[keyObj]; exists {
+			continue
+		}
+		seen[keyObj] = struct{}{}
+		payloads = append(payloads, WeatherPayload{
+			City:       city,
+			Source:     source,
+			Key:        key,
+			ProjectId:  projectId,
+			KeyId:      keyId,
+			PrivateKey: privateKey,
+		})
+	}
+	return payloads
 }

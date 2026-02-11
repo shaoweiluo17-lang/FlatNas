@@ -107,6 +107,9 @@ export interface AppConfig {
   backgroundMask?: number;
   mobileBackgroundBlur?: number;
   mobileBackgroundMask?: number;
+  daylightModeEnabled?: boolean;
+  daylightMask?: number;
+  weatherEffectEnabled?: boolean;
   internalDomains?: string;
   forceNetworkMode?: "auto" | "lan" | "wan" | "latency";
   latencyThresholdMs?: number;
