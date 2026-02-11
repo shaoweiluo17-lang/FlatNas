@@ -146,6 +146,7 @@ func main() {
 		api.GET("/weather", handlers.GetWeather)                                                   // Added Weather
 		api.GET("/custom-scripts", middleware.OptionalAuthMiddleware(), handlers.GetCustomScripts) // Added Custom Scripts
 		api.GET("/docker-status", handlers.GetDockerStatus)                                        // Added Docker Status
+		api.GET("/docker/debug", handlers.GetDockerDebug)
 		api.GET("/config/proxy-status", handlers.GetProxyStatus)
 		api.GET("/widgets/:id", handlers.GetWidget) // Added Widget Data
 

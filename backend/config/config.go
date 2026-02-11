@@ -68,6 +68,36 @@ func ensureDirs() {
 
 func ensureSystemConfig() {
 	if _, err := os.Stat(SystemConfigFile); err == nil {
+		data, err := os.ReadFile(SystemConfigFile)
+		if err != nil {
+			log.Printf("Failed to read system config: %v", err)
+			return
+		}
+		var current map[string]interface{}
+		if err := json.Unmarshal(data, &current); err != nil {
+			log.Printf("Failed to parse system config: %v", err)
+			return
+		}
+		changed := false
+		if v, ok := current["authMode"].(string); !ok || strings.TrimSpace(v) == "" {
+			current["authMode"] = "single"
+			changed = true
+		}
+		if _, ok := current["enableDocker"].(bool); !ok {
+			current["enableDocker"] = true
+			changed = true
+		}
+		if !changed {
+			return
+		}
+		updated, err := json.MarshalIndent(current, "", "  ")
+		if err != nil {
+			log.Printf("Failed to marshal system config: %v", err)
+			return
+		}
+		if err := os.WriteFile(SystemConfigFile, updated, 0644); err != nil {
+			log.Printf("Failed to write system config: %v", err)
+		}
 		return
 	} else if !os.IsNotExist(err) {
 		log.Printf("Failed to check system config: %v", err)

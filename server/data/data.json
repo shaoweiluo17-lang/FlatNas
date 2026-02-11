@@ -591,9 +591,9 @@
     {
       "colSpan": 1,
       "data": {
-        "content": "1.0.76dev\n修改了一些布局\n优化了内外网判定逻辑\n",
+        "content": "1.0.76dev\n修改了一些布局\n优化了内外网判定逻辑\n把后端改成go了",
         "mode": "simple",
-        "updatedAt": 1770761966225
+        "updatedAt": 1770783651679
       },
       "enable": true,
       "h": 2,

@@ -137,6 +137,7 @@ export const useMainStore = defineStore("main", () => {
   const webPaginationActiveGroupId = ref("");
   const isLanModeInited = ref(false);
   const ipFetchStatus = ref<"success" | "error" | "loading">("loading");
+  const isPageUnloading = ref(false);
 
   const getHeaders = () => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -147,7 +148,7 @@ export const useMainStore = defineStore("main", () => {
   };
 
   // Version Check
-  const currentVersion = "1.1.1.dev2";
+  const currentVersion = "1.1.1dev3";
   const latestVersion = ref("");
   const dockerUpdateAvailable = ref(false);
   const updateCheckLastAt = useStorage<number>("flat-nas-update-check-last-at", 0);
@@ -727,6 +728,9 @@ export const useMainStore = defineStore("main", () => {
     }
 
     const doSave = async () => {
+      if (isPageUnloading.value) {
+        return;
+      }
       isSaving.value = true;
       try {
         if (!isLogged.value) {
@@ -772,6 +776,12 @@ export const useMainStore = defineStore("main", () => {
           localStorage.removeItem("flat-nas-username");
         }
       } catch (e) {
+        if (isPageUnloading.value) {
+          return;
+        }
+        if (e instanceof DOMException && e.name === "AbortError") {
+          return;
+        }
         console.error("保存失败", e);
       } finally {
         isSaving.value = false;
@@ -787,6 +797,18 @@ export const useMainStore = defineStore("main", () => {
       doSave();
     }, 500);
   };
+
+  if (typeof window !== "undefined") {
+    const markUnloading = () => {
+      isPageUnloading.value = true;
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+    };
+    window.addEventListener("beforeunload", markUnloading);
+    window.addEventListener("pagehide", markUnloading);
+  }
 
   const cleanInvalidGroups = () => {
     const seen = new Set<string>();

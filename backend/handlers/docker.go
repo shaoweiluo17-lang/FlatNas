@@ -256,6 +256,47 @@ func GetDockerInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "info": info, "version": version, "socketPath": dc.DaemonHost()})
 }
 
+func GetDockerDebug(c *gin.Context) {
+	var sysConfig models.SystemConfig
+	utils.ReadJSON(config.SystemConfigFile, &sysConfig)
+
+	dockerHostRaw := strings.TrimSpace(sysConfig.DockerHost)
+	dockerHostEnv := strings.TrimSpace(os.Getenv("DOCKER_HOST"))
+	dockerHostResolved := resolveDockerHost()
+
+	enabled := sysConfig.EnableDocker
+	dc := getDockerClient()
+	clientAvailable := dc != nil
+	daemonHost := ""
+	pingOk := false
+	pingError := ""
+	if dc != nil {
+		daemonHost = dc.DaemonHost()
+		if _, err := dc.Ping(context.Background()); err != nil {
+			pingError = err.Error()
+		} else {
+			pingOk = true
+		}
+	}
+
+	initError := ""
+	if dockerInitError != nil {
+		initError = dockerInitError.Error()
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"enableDocker":       enabled,
+		"dockerHostRaw":      dockerHostRaw,
+		"dockerHostEnv":      dockerHostEnv,
+		"dockerHostResolved": dockerHostResolved,
+		"clientAvailable":    clientAvailable,
+		"daemonHost":         daemonHost,
+		"pingOk":             pingOk,
+		"pingError":          pingError,
+		"initError":          initError,
+	})
+}
+
 type InspectLite struct {
 	NetworkMode string `json:"networkMode"`
 	Ports       []int  `json:"ports"`
