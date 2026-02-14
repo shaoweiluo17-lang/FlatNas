@@ -949,6 +949,7 @@ const isUnknownWidget = (type: string) => {
     "status-monitor",
     "file-transfer",
     "music",
+    "smart-work-countdown",
   ];
 
   return !knownTypes.includes(type);
@@ -2600,6 +2601,8 @@ watch(activeTab, (val) => {
                                                                       ? "正计时"
                                                                       : w.type === "docker"
                                                                         ? "Docker 管理"
+                                                                        : w.type === "smart-work-countdown"
+                                                                            ? "智能下班倒计时"
                                                                         : w.type === "custom-css"
                                                                           ? w.data?.title || "自定义组件"
                                                                           : w.type === "music"
@@ -3307,61 +3310,6 @@ watch(activeTab, (val) => {
                       type="datetime-local"
                       class="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:border-gray-900 outline-none"
                     />
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            <!-- Smart Work Countdown Widget Section -->
-            <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-4 mt-8">
-              <div class="flex items-center gap-2">
-                <h4 class="text-base font-bold text-gray-900 border-l-4 border-gray-900 pl-3">
-                  智能下班倒计时
-                </h4>
-                <span class="text-xs text-blue-600 px-2 py-1 rounded-full glass-chip selected-outline">支持周排班</span>
-                <span class="text-xs text-purple-600 px-2 py-1 rounded-full glass-chip selected-outline">支持调休</span>
-                <button
-                  @click="addSmartWorkCountdownWidget"
-                  class="px-3 py-1.5 text-xs font-medium text-gray-900 rounded-lg transition-colors flex items-center gap-1 ml-2 glass-chip selectable-outline"
-                >
-                  <span class="text-base leading-none">+</span> 新增智能倒计时
-                </button>
-              </div>
-            </div>
-
-            <template v-for="w in store.widgets" :key="'swcd-' + w.id">
-              <div
-                v-if="w.type === 'smart-work-countdown'"
-                class="flatnas-handshake-signal flex flex-col gap-3 p-4 border border-gray-100 rounded-xl bg-gray-50 hover:bg-white hover:shadow-md transition-all"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-4">
-                    <div
-                      class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-medium text-white shadow-sm"
-                    >
-                      ⏰
-                    </div>
-                    <div>
-                      <div class="font-bold text-gray-800 text-sm">{{ w.data?.title || "智能下班倒计时" }}</div>
-                      <div class="text-xs text-gray-400">
-                        {{ w.data?.scheduleType === 'weekly' ? '周排班模式' : w.data?.scheduleType === 'custom' ? '自定义模式' : '简单模式' }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-6">
-                    <div class="flex flex-col items-end gap-1">
-                      <span class="text-[10px] text-gray-400 font-medium">启用</span
-                      ><label class="relative inline-flex items-center cursor-pointer"
-                        ><input
-                          type="checkbox"
-                          v-model="w.enable"
-                          class="sr-only peer"
-                          @change="store.saveData()" />
-                        <div
-                          class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"
-                        ></div
-                      ></label>
-                    </div>
                   </div>
                 </div>
               </div>

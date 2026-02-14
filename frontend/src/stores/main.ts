@@ -630,6 +630,31 @@ export const useMainStore = defineStore("main", () => {
           rowSpan: 1,
           isPublic: true,
         },
+        {
+          id: "smart-work-countdown",
+          type: "smart-work-countdown",
+          enable: false,
+          colSpan: 1,
+          rowSpan: 1,
+          isPublic: true,
+          data: {
+            title: "距离下班还有",
+            style: "card",
+            scheduleType: "weekly",
+            defaultOffWorkTime: "18:00",
+            weeklySchedule: {
+              0: null,
+              1: "18:00",
+              2: "20:30",
+              3: "18:00",
+              4: "20:30",
+              5: "18:00",
+              6: null,
+            },
+            customSchedule: [],
+            showWeekend: true,
+          },
+        },
       ];
     }
 
