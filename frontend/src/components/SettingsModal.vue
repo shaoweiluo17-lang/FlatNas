@@ -693,6 +693,12 @@ const newUser = ref("");
 const newPwd = ref("");
 const licenseKey = ref("");
 
+// Invite Code Management
+const inviteCodes = ref<any[]>([]);
+const newInviteMaxUses = ref(0);
+const newInviteExpiresIn = ref(0);
+const newInviteDescription = ref("");
+
 const loadUsers = async () => {
   const users = await store.fetchUsers();
   if (Array.isArray(users)) {
@@ -741,10 +747,47 @@ watch(
   (val) => {
     if (val === "account") {
       loadUsers();
+      loadInviteCodes();
     }
   },
   { immediate: true },
 );
+
+// Invite Code Management Functions
+const loadInviteCodes = async () => {
+  const codes = await store.fetchInviteCodes();
+  if (Array.isArray(codes)) {
+    inviteCodes.value = codes;
+  }
+};
+
+const handleGenerateInviteCode = async () => {
+  try {
+    const code = await store.generateInviteCode(
+      newInviteMaxUses.value,
+      newInviteExpiresIn.value,
+      newInviteDescription.value
+    );
+    alert(`邀请码已生成: ${code.code}`);
+    newInviteMaxUses.value = 0;
+    newInviteExpiresIn.value = 0;
+    newInviteDescription.value = "";
+    loadInviteCodes();
+  } catch (e: unknown) {
+    alert((e as Error).message || "生成失败");
+  }
+};
+
+const handleDeleteInviteCode = async (code: string) => {
+  if (!confirm(`确定删除邀请码 ${code} 吗？`)) return;
+  try {
+    await store.deleteInviteCode(code);
+    alert("删除成功");
+    loadInviteCodes();
+  } catch (e: unknown) {
+    alert("删除失败");
+  }
+};
 
 const toggleAuthMode = async () => {
   const currentMode = store.systemConfig.authMode;
@@ -4052,7 +4095,7 @@ document.querySelector('.card-item').addEventListener('click', () => {
                 登 录
               </button>
             </div>
-            <div v-else class="max-w-sm mx-auto w-full">
+            <div v-else class="max-w-2xl mx-auto w-full">
               <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 mb-6">
                 <h5 class="text-sm font-bold text-gray-900 mb-3">📦 备份与恢复</h5>
                 <div class="grid grid-cols-2 gap-3">
@@ -4288,6 +4331,141 @@ document.querySelector('.card-item').addEventListener('click', () => {
                     >
                       删除
                     </button>
+                  </div>
+                </div>
+
+                <!-- Registration Settings -->
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                  <h6 class="text-xs font-bold text-gray-900 mb-2">🔓 注册设置</h6>
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-700">允许公开注册</span>
+                    <button
+                      @click="async () => {
+                        store.systemConfig.allowRegistration = !store.systemConfig.allowRegistration;
+                        await store.updateSystemConfig({ allowRegistration: store.systemConfig.allowRegistration });
+                      }"
+                      :class="store.systemConfig.allowRegistration ? 'bg-green-500' : 'bg-gray-300'"
+                      class="relative w-12 h-6 rounded-full transition-colors"
+                    >
+                      <span
+                        :class="store.systemConfig.allowRegistration ? 'translate-x-6' : 'translate-x-1'"
+                        class="absolute top-1 left-0 w-4 h-4 bg-white rounded-full transition-transform"
+                      ></span>
+                    </button>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">
+                    {{ store.systemConfig.allowRegistration ? '已开启：任何人都可以注册' : '已关闭：需要邀请码才能注册' }}
+                  </p>
+                </div>
+
+                <!-- Invite Code Management -->
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                  <h6 class="text-xs font-bold text-gray-900 mb-2">🎟️ 邀请码管理</h6>
+                  
+                  <!-- Generate Invite Code -->
+                  <div class="flex flex-col gap-3 mb-3 p-4 bg-gray-50 rounded-lg">
+                    <!-- Max Uses -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">最大使用次数</label>
+                      <input
+                        v-model="newInviteMaxUses"
+                        type="number"
+                        min="0"
+                        placeholder="例如: 1(仅一次) 或 0(无限制)"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-gray-900 outline-none"
+                      />
+                      <p class="text-xs text-gray-500 mt-1">0 表示无限制,1 表示仅一人可使用</p>
+                    </div>
+
+                    <!-- Expiry Options -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">有效期</label>
+                      <div class="flex gap-2 mb-2">
+                        <button
+                          @click="newInviteExpiresIn = 0"
+                          :class="newInviteExpiresIn === 0 ? 'bg-gray-900 text-white' : 'bg-white text-gray-600'"
+                          class="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                        >
+                          永久有效
+                        </button>
+                        <button
+                          @click="newInviteExpiresIn = 7"
+                          :class="newInviteExpiresIn === 7 ? 'bg-gray-900 text-white' : 'bg-white text-gray-600'"
+                          class="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                        >
+                          7天
+                        </button>
+                        <button
+                          @click="newInviteExpiresIn = 30"
+                          :class="newInviteExpiresIn === 30 ? 'bg-gray-900 text-white' : 'bg-white text-gray-600'"
+                          class="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                        >
+                          30天
+                        </button>
+                        <button
+                          @click="newInviteExpiresIn = 90"
+                          :class="newInviteExpiresIn === 90 ? 'bg-gray-900 text-white' : 'bg-white text-gray-600'"
+                          class="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                        >
+                          90天
+                        </button>
+                      </div>
+                      <input
+                        v-model="newInviteExpiresIn"
+                        type="number"
+                        min="0"
+                        placeholder="自定义天数,0为永久"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-gray-900 outline-none"
+                      />
+                      <p class="text-xs text-gray-500 mt-1">选择预设时间或输入自定义天数</p>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">备注说明</label>
+                      <input
+                        v-model="newInviteDescription"
+                        placeholder="例如: 给张三的邀请码,团队2024年Q1..."
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-gray-900 outline-none"
+                      />
+                      <p class="text-xs text-gray-500 mt-1">可选,方便识别和管理邀请码</p>
+                    </div>
+
+                    <button
+                      @click="handleGenerateInviteCode"
+                      class="w-full bg-gray-900 text-white px-4 py-3 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors"
+                    >
+                      生成邀请码
+                    </button>
+                  </div>
+
+                  <!-- Invite Code List -->
+                  <div class="space-y-2 max-h-40 overflow-y-auto">
+                    <div
+                      v-for="code in inviteCodes"
+                      :key="code.code"
+                      class="flex flex-col gap-1 bg-white px-3 py-2 rounded-lg border border-gray-200"
+                    >
+                      <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-700 font-mono">{{ code.code }}</span>
+                        <button
+                          @click="handleDeleteInviteCode(code.code)"
+                          class="text-gray-400 hover:text-gray-600 text-xs font-bold px-2"
+                        >
+                          删除
+                        </button>
+                      </div>
+                      <div class="text-xs text-gray-500 flex gap-3">
+                        <span>使用: {{ code.usedCount }}/{{ code.maxUses || '∞' }}</span>
+                        <span v-if="code.expiresAt > 0">
+                          过期: {{ new Date(code.expiresAt * 1000).toLocaleDateString() }}
+                        </span>
+                        <span v-else>永久有效</span>
+                      </div>
+                      <div v-if="code.description" class="text-xs text-gray-400">
+                        {{ code.description }}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

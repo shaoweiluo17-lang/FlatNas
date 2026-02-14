@@ -142,6 +142,7 @@ func main() {
 	api := r.Group("/api")
 	{
 		api.POST("/login", handlers.Login)
+		api.POST("/register", handlers.Register)
 		api.GET("/data", middleware.OptionalAuthMiddleware(), handlers.GetData)
 		api.GET("/system-config", handlers.GetSystemConfig)
 		api.GET("/ip", handlers.GetIP)                                                             // Added GetIP
@@ -150,7 +151,6 @@ func main() {
 		api.GET("/docker-status", handlers.GetDockerStatus)                                        // Added Docker Status
 		api.GET("/docker/debug", handlers.GetDockerDebug)
 		api.GET("/config/proxy-status", handlers.GetProxyStatus)
-		api.GET("/widgets/:id", handlers.GetWidget) // Added Widget Data
 
 		// Icon Routes
 		api.GET("/ali-icons", handlers.GetAliIcons)
@@ -162,6 +162,7 @@ func main() {
 
 		api.GET("/ping", handlers.Ping)                   // Added Ping
 		api.GET("/rtt", handlers.RTT)                     // Added RTT for frontend latency check
+		api.GET("/lucky/stun", handlers.LuckyStun)        // Added STUN server information
 		api.POST("/visitor/track", handlers.TrackVisitor) // Public endpoint
 		api.GET("/transfer/file/:filename", middleware.OptionalAuthMiddleware(), handlers.ServeFile)
 		api.GET("/music-list", handlers.GetMusicList) // Added Music List
@@ -170,11 +171,19 @@ func main() {
 		authorized := api.Group("/")
 		authorized.Use(middleware.AuthMiddleware())
 		{
+			// Widget Data
+			authorized.GET("/widgets/:id", handlers.GetWidget)
+
 			// User Management
 			authorized.GET("/admin/users", handlers.GetUsers)
 			authorized.POST("/admin/users", handlers.AddUser)
 			authorized.DELETE("/admin/users/:usr", handlers.DeleteUser)
 			authorized.POST("/admin/license", handlers.UploadLicense)
+
+			// Invite Code Management
+			authorized.GET("/admin/invite-codes", handlers.GetInviteCodes)
+			authorized.POST("/admin/invite-codes", handlers.GenerateInviteCode)
+			authorized.DELETE("/admin/invite-codes/:code", handlers.DeleteInviteCode)
 
 			authorized.POST("/save", handlers.SaveData)                    // Added SaveData
 			authorized.POST("/system-config", handlers.UpdateSystemConfig) // Added SystemConfig Update

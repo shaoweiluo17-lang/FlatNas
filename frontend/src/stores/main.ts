@@ -139,7 +139,7 @@ export const useMainStore = defineStore("main", () => {
   const items = computed(() => groups.value.flatMap((g) => g.items));
   const rssFeeds = ref<RssFeed[]>([]);
   const rssCategories = ref<RssCategory[]>([]);
-  const systemConfig = ref({ authMode: "single" }); // Default
+  const systemConfig = ref({ authMode: "single", allowRegistration: false }); // Default
 
   // Auth State
   const token = ref(localStorage.getItem("flat-nas-token") || "");
@@ -1049,12 +1049,15 @@ export const useMainStore = defineStore("main", () => {
     }
   };
 
-  const register = async (usr: string, pwd: string) => {
+  const register = async (usr: string, pwd: string, inviteCode?: string) => {
     try {
+      const body: Record<string, string> = { username: usr, password: pwd };
+      if (inviteCode) body.inviteCode = inviteCode;
+      
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: usr, password: pwd }),
+        body: JSON.stringify(body),
       });
       if (res.ok) return true;
       const data = await res.json();
@@ -1124,6 +1127,57 @@ export const useMainStore = defineStore("main", () => {
       if (res.ok) return true;
       const data = await res.json();
       throw new Error(data.error || "Upload license failed");
+    } catch (e) {
+      throw e;
+    }
+  };
+
+  // Invite Code Management
+  const fetchInviteCodes = async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token.value) headers["Authorization"] = `Bearer ${token.value}`;
+      const res = await fetch("/api/admin/invite-codes", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        return data.codes;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
+
+  const generateInviteCode = async (maxUses: number, expiresIn: number, description: string) => {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token.value) headers["Authorization"] = `Bearer ${token.value}`;
+      const res = await fetch("/api/admin/invite-codes", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ maxUses, expiresIn, description }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.code;
+      }
+      const data = await res.json();
+      throw new Error(data.error || "Generate failed");
+    } catch (e) {
+      throw e;
+    }
+  };
+
+  const deleteInviteCode = async (code: string) => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token.value) headers["Authorization"] = `Bearer ${token.value}`;
+      const res = await fetch(`/api/admin/invite-codes/${code}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (res.ok) return true;
+      throw new Error("Delete failed");
     } catch (e) {
       throw e;
     }
@@ -1327,6 +1381,9 @@ export const useMainStore = defineStore("main", () => {
     addUser,
     deleteUser,
     uploadLicense,
+    fetchInviteCodes,
+    generateInviteCode,
+    deleteInviteCode,
     luckyStunData,
     fetchLuckyStunData,
     getAssetUrl,

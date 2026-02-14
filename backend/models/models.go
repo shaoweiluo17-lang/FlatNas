@@ -79,9 +79,21 @@ type WallpaperConfig struct {
 }
 
 type SystemConfig struct {
-	AuthMode     string `json:"authMode"` // "single" or "multi"
-	EnableDocker bool   `json:"enableDocker"`
-	DockerHost   string `json:"dockerHost,omitempty"`
+	AuthMode          string `json:"authMode"` // "single" or "multi"
+	EnableDocker      bool   `json:"enableDocker"`
+	DockerHost        string `json:"dockerHost,omitempty"`
+	AllowRegistration bool   `json:"allowRegistration"`
+}
+
+type InviteCode struct {
+	Code        string `json:"code"`
+	CreatedBy   string `json:"createdBy"`   // Admin username who created it
+	CreatedAt   int64  `json:"createdAt"`   // Unix timestamp
+	MaxUses     int    `json:"maxUses"`     // 0 means unlimited
+	UsedCount   int    `json:"usedCount"`   // How many times it has been used
+	ExpiresAt   int64  `json:"expiresAt"`   // 0 means never expires
+	IsActive    bool   `json:"isActive"`    // Can be deactivated
+	Description string `json:"description"` // Optional description
 }
 
 type LoginRequest struct {

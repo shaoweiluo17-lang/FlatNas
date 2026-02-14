@@ -513,3 +513,23 @@ func RTT(c *gin.Context) {
 		"time":    time.Now().UnixNano(),
 	})
 }
+
+// LuckyStun returns STUN server information for NAT traversal and network discovery
+func LuckyStun(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	
+	// Return public STUN servers that can be used for NAT traversal
+	stunServers := []string{
+		"stun.l.google.com:19302",
+		"stun1.l.google.com:19302",
+		"stun2.l.google.com:19302",
+		"stun3.l.google.com:19302",
+		"stun4.l.google.com:19302",
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"servers": stunServers,
+		"timestamp": time.Now().Unix(),
+	})
+}

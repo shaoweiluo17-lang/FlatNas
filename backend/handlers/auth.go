@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flatnasgo-backend/config"
 	"flatnasgo-backend/models"
 	"flatnasgo-backend/utils"
@@ -113,6 +115,12 @@ func Login(c *gin.Context) {
 	}
 }
 
+type RegisterRequest struct {
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	InviteCode string `json:"inviteCode,omitempty"`
+}
+
 type AddUserRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -120,6 +128,92 @@ type AddUserRequest struct {
 
 type LicenseRequest struct {
 	Key string `json:"key"`
+}
+
+func Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if req.Username == "" || req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
+		return
+	}
+
+	if req.Username == "admin" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot register as admin"})
+		return
+	}
+
+	// Check if registration is allowed
+	var sysConfig models.SystemConfig
+	utils.ReadJSON(config.SystemConfigFile, &sysConfig)
+
+	if !sysConfig.AllowRegistration && req.InviteCode == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Registration is closed"})
+		return
+	}
+
+	// If invite code is provided, verify it
+	if req.InviteCode != "" {
+		inviteCodesFile := filepath.Join(config.DataDir, "invite_codes.json")
+		var inviteCodes []models.InviteCode
+		utils.ReadJSON(inviteCodesFile, &inviteCodes)
+
+		validCode := false
+		var codeIndex = -1
+
+		for i, code := range inviteCodes {
+			if code.Code == req.InviteCode && code.IsActive {
+				// Check if expired
+				if code.ExpiresAt > 0 && code.ExpiresAt < time.Now().Unix() {
+					continue
+				}
+				// Check if max uses reached
+				if code.MaxUses > 0 && code.UsedCount >= code.MaxUses {
+					continue
+				}
+				validCode = true
+				codeIndex = i
+				break
+			}
+		}
+
+		if !validCode {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Invalid or expired invite code"})
+			return
+		}
+
+		// Update used count
+		inviteCodes[codeIndex].UsedCount++
+		utils.WriteJSON(inviteCodesFile, inviteCodes)
+	}
+
+	userFile := filepath.Join(config.UsersDir, req.Username+".json")
+	if _, err := os.Stat(userFile); err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+
+	user := models.User{
+		Username: req.Username,
+		Password: string(hashed),
+	}
+
+	if err := utils.WriteJSON(userFile, user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func GetUsers(c *gin.Context) {
@@ -221,6 +315,112 @@ func UploadLicense(c *gin.Context) {
 	licenseFile := filepath.Join(config.DataDir, "license.key")
 	if err := os.WriteFile(licenseFile, []byte(req.Key), 0644); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save license"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+type GenerateInviteCodeRequest struct {
+	MaxUses     int    `json:"maxUses"`     // 0 for unlimited
+	ExpiresIn   int    `json:"expiresIn"`   // Days until expiration, 0 for never
+	Description string `json:"description"`
+}
+
+func GetInviteCodes(c *gin.Context) {
+	username := c.GetString("username")
+	if username != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+		return
+	}
+
+	inviteCodesFile := filepath.Join(config.DataDir, "invite_codes.json")
+	var inviteCodes []models.InviteCode
+	utils.ReadJSON(inviteCodesFile, &inviteCodes)
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "codes": inviteCodes})
+}
+
+func GenerateInviteCode(c *gin.Context) {
+	username := c.GetString("username")
+	if username != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+		return
+	}
+
+	var req GenerateInviteCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Generate random code
+	bytes := make([]byte, 8)
+	rand.Read(bytes)
+	code := hex.EncodeToString(bytes)
+
+	var expiresAt int64 = 0
+	if req.ExpiresIn > 0 {
+		expiresAt = time.Now().Add(time.Duration(req.ExpiresIn) * 24 * time.Hour).Unix()
+	}
+
+	newCode := models.InviteCode{
+		Code:        code,
+		CreatedBy:   username,
+		CreatedAt:   time.Now().Unix(),
+		MaxUses:     req.MaxUses,
+		UsedCount:   0,
+		ExpiresAt:   expiresAt,
+		IsActive:    true,
+		Description: req.Description,
+	}
+
+	inviteCodesFile := filepath.Join(config.DataDir, "invite_codes.json")
+	var inviteCodes []models.InviteCode
+	utils.ReadJSON(inviteCodesFile, &inviteCodes)
+	inviteCodes = append(inviteCodes, newCode)
+
+	if err := utils.WriteJSON(inviteCodesFile, inviteCodes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save invite code"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "code": newCode})
+}
+
+func DeleteInviteCode(c *gin.Context) {
+	username := c.GetString("username")
+	if username != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+		return
+	}
+
+	code := c.Param("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Code required"})
+		return
+	}
+
+	inviteCodesFile := filepath.Join(config.DataDir, "invite_codes.json")
+	var inviteCodes []models.InviteCode
+	utils.ReadJSON(inviteCodesFile, &inviteCodes)
+
+	found := false
+	for i, inviteCode := range inviteCodes {
+		if inviteCode.Code == code {
+			inviteCodes = append(inviteCodes[:i], inviteCodes[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invite code not found"})
+		return
+	}
+
+	if err := utils.WriteJSON(inviteCodesFile, inviteCodes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete invite code"})
 		return
 	}
 

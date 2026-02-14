@@ -8,6 +8,7 @@ const store = useMainStore();
 
 const username = ref("");
 const password = ref("");
+const inviteCode = ref("");
 const isRegister = ref(false);
 const inputRef = ref<HTMLInputElement | null>(null);
 
@@ -48,10 +49,16 @@ const handleSubmit = async () => {
 
   try {
     if (isRegister.value) {
-      await store.register(username.value, password.value);
+      // Check if registration is allowed
+      if (!store.systemConfig.allowRegistration && !inviteCode.value.trim()) {
+        alert("注册功能已关闭，请输入邀请码或联系管理员");
+        return;
+      }
+      await store.register(username.value, password.value, inviteCode.value);
       alert("注册成功，请登录");
       isRegister.value = false;
       password.value = "";
+      inviteCode.value = "";
     } else {
       const success = await store.login(username.value, password.value);
       if (success) {
@@ -113,6 +120,15 @@ const handleSubmit = async () => {
               v-model="password"
               type="password"
               placeholder="密码"
+              class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all text-center text-lg tracking-widest"
+              @keyup.enter="handleSubmit"
+            />
+          </div>
+          <div v-if="isRegister && !store.systemConfig.allowRegistration">
+            <input
+              v-model="inviteCode"
+              type="text"
+              placeholder="邀请码 (注册需要)"
               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all text-center text-lg tracking-widest"
               @keyup.enter="handleSubmit"
             />

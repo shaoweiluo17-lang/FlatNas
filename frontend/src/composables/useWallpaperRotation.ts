@@ -12,7 +12,9 @@ export function useWallpaperRotation() {
 
   const fetchWallpapers = async () => {
     try {
-      const res = await fetch(store.appConfig.wallpaperApiPcList || "/api/backgrounds");
+      const res = await fetch(store.appConfig.wallpaperApiPcList || "/api/backgrounds", {
+        headers: store.getHeaders(),
+      });
       if (res.ok) pcWallpapers.value = await res.json();
       if (pcWallpapers.value.length === 0) {
         pcWallpapers.value = ["default-wallpaper.svg"];
@@ -20,6 +22,7 @@ export function useWallpaperRotation() {
 
       const resMobile = await fetch(
         store.appConfig.wallpaperApiMobileList || "/api/mobile_backgrounds",
+        { headers: store.getHeaders() },
       );
       if (resMobile.ok) mobileWallpapers.value = await resMobile.json();
       if (mobileWallpapers.value.length === 0) {
