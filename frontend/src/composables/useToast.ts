@@ -1,5 +1,5 @@
 import { ref, h, render } from "vue";
-import Toast from "../components/Toast.vue";
+import ToastNotification from "../components/ToastNotification.vue";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -31,7 +31,7 @@ export function useToast() {
       }
     };
 
-    const vnode = h(Toast, {
+    const vnode = h(ToastNotification, {
       message,
       type,
       duration,
