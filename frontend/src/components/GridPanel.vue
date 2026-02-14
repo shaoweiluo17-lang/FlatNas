@@ -40,6 +40,7 @@ const ClockWidget = defineAsyncComponent(() => import("./ClockWidget.vue"));
 const AppSidebar = defineAsyncComponent(() => import("./AppSidebar.vue"));
 const CountdownWidget = defineAsyncComponent(() => import("./CountdownWidget.vue"));
 const CountUpWidget = defineAsyncComponent(() => import("./CountUpWidget.vue"));
+const SmartWorkCountdownWidget = defineAsyncComponent(() => import("./SmartWorkCountdownWidget.vue"));
 const DockerWidget = defineAsyncComponent(() => import("./DockerWidget.vue"));
 const SystemStatusWidget = defineAsyncComponent(() => import("./SystemStatusWidget.vue"));
 const CustomCssWidget = defineAsyncComponent(() => import("./CustomCssWidget.vue"));
@@ -2822,6 +2823,7 @@ onUnmounted(() => {
             </div>
             <CountdownWidget v-else-if="widget.type === 'countdown'" :widget="widget" />
             <CountUpWidget v-else-if="widget.type === 'countup'" :widget="widget" />
+            <SmartWorkCountdownWidget v-else-if="widget.type === 'smart-work-countdown'" :widget="widget" />
             <IframeWidget
               v-else-if="widget.type === 'iframe'"
               :widget="widget"
