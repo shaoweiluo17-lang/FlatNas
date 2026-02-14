@@ -1,0 +1,56 @@
+﻿{
+  "manifest_version": 3,
+  "name": "FlatNas 加速器",
+  "version": "1.0.0",
+  "description": "为 FlatNas 提供本地缓存、离线访问和性能优化",
+  "permissions": [
+    "storage",
+    "background",
+    "webRequest",
+    "webRequestBlocking",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://bswy.cc/*",
+    "http://192.168.31.90:23000/*",
+    "http://localhost:23000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://bswy.cc/*",
+        "http://192.168.31.90:23000/*",
+        "http://localhost:23000/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": [
+        "https://bswy.cc/*",
+        "http://192.168.31.90:23000/*",
+        "http://localhost:23000/*"
+      ]
+    }
+  ]
+}

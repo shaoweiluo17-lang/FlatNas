@@ -34,3 +34,38 @@ if (import.meta.env.DEV) {
   attachErrorCapture();
   ensureOverlayHandled();
 }
+
+// Service Worker 注册
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('[SW] Service Worker registered:', registration.scope);
+
+          // 监听更新
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // 有新版本可用
+                  console.log('[SW] New version available');
+                  // 可以在这里显示更新提�?
+                }
+              });
+            }
+          });
+        })
+        .catch((error) => {
+          console.error('[SW] Service Worker registration failed:', error);
+        });
+  });
+}
+
+// 监听 Service Worker 控制变化
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.log('[SW] Controller changed, reloading page');
+    window.location.reload();
+  });
+}
