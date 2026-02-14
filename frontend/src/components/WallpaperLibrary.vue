@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, onBeforeUnmount } from "vue";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 import { VueDraggable } from "vue-draggable-plus";
 import { cacheImage, getCachedImage } from "@/utils/imageCache";
 import { v4 as uuidv4 } from "uuid";
@@ -13,6 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits(["update:show", "select"]);
 const store = useMainStore();
+const toast = useToast();
 
 const activeTab = ref<"pc" | "mobile" | "api">("pc");
 const wallpapers = ref<string[]>([]);
@@ -241,11 +243,11 @@ const executeUpload = async () => {
       await fetchWallpapers();
       store.refreshResources(); // 刷新资源版本号，更新图片缓存
     } else {
-      alert("上传失败");
+      toast.error("上传失败");
     }
   } catch (e) {
     console.error(e);
-    alert("上传出错");
+    toast.error("上传出错");
   } finally {
     uploading.value = false;
     pendingFiles.value = [];
@@ -254,7 +256,7 @@ const executeUpload = async () => {
 
 const handleDelete = (name: string, type: "pc" | "mobile") => {
   if (name === DEFAULT_WALLPAPER) {
-    alert("默认壁纸无法删除");
+    toast.error("默认壁纸无法删除");
     return;
   }
   confirmMessage.value = "确定要删除这张壁纸吗？";
@@ -299,7 +301,7 @@ const executeDelete = async (name: string, type: "pc" | "mobile") => {
       }
       store.refreshResources();
     } else {
-      alert("删除失败");
+      toast.error("删除失败");
     }
   } catch (e) {
     console.error(e);
@@ -638,14 +640,14 @@ const applyCustomApi = async (type: "pc" | "mobile", apply: boolean = true) => {
         store.appConfig.mobileWallpaperConfig = config;
       }
       store.saveData();
-      alert("设置成功");
+      toast.success("设置成功");
     } else {
       await fetchWallpapers();
-      alert(type === "pc" ? "已保存到 PC 壁纸库" : "已保存到手机壁纸库");
+      toast.success(type === "pc" ? "已保存到 PC 壁纸库" : "已保存到手机壁纸库");
     }
   } catch (e) {
     console.error(e);
-    alert("请求出错，请检查网络");
+    toast.error("请求出错，请检查网络");
     // Fallback logic as requested: "Failure -> Default icon"
     if (type === "pc") {
       store.appConfig.background = store.getAssetUrl(`/${DEFAULT_WALLPAPER}`);

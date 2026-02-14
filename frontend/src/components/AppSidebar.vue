@@ -5,6 +5,7 @@ defineOptions({
 import { computed, onMounted, onUnmounted, ref, nextTick, toRef } from "vue";
 import { useMainStore } from "../stores/main";
 import { useDevice } from "../composables/useDevice";
+import { useToast } from "../composables/useToast";
 import type { BookmarkCategory, BookmarkItem } from "@/types";
 import { parseBookmarks } from "../utils/bookmark";
 import { VueDraggable } from "vue-draggable-plus";
@@ -17,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits(["update:collapsed"]);
 const store = useMainStore();
+const toast = useToast();
 const { isMobile } = useDevice(toRef(store.appConfig, "deviceMode"));
 const isHovered = ref(false);
 const isCollapsed = computed(() => {
@@ -347,13 +349,13 @@ const handleFileUpload = (event: Event) => {
         // Save store
         store.saveData();
 
-        alert(`成功导入 ${newItems.length} 个书签！`);
+        toast.success(`成功导入 ${newItems.length} 个书签！`);
       } else {
-        alert("未找到可导入的书签");
+        toast.info("未找到可导入的书签");
       }
     } catch (error) {
       console.error("Import failed", error);
-      alert("导入失败，请检查文件格式");
+      toast.error("导入失败，请检查文件格式");
     }
   };
   reader.readAsText(file);
@@ -668,7 +670,7 @@ const confirmAddBookmark = async () => {
 
   if (widget && !widget.data) widget.data = [];
   if (!widget) {
-    alert("Bookmark widget not found");
+    toast.error("Bookmark widget not found");
     return;
   }
   const categories = widget.data as BookmarkCategory[];
@@ -689,7 +691,7 @@ const confirmAddBookmark = async () => {
   }
 
   if (!targetCategory) {
-    alert("未找到选中的分组");
+    toast.error("未找到选中的分组");
     return;
   }
 

@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useStorage } from "@vueuse/core";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 import type { WidgetConfig, NavGroup, NavItem } from "@/types";
 import IconUploader from "./IconUploader.vue";
 import WallpaperLibrary from "./WallpaperLibrary.vue";
@@ -16,6 +17,7 @@ import ScriptManager from "./ScriptManager.vue";
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits(["update:show"]);
 const store = useMainStore();
+const toast = useToast();
 
 const DEFAULT_LATENCY_THRESHOLD_MS = 200;
 const latencyThresholdDraft = ref("");
@@ -376,13 +378,13 @@ const updateDisplayName = async () => {
       if (!musicWidget.value.data.userProfile) musicWidget.value.data.userProfile = updated;
       musicWidget.value.data.userProfile.displayName = updated.displayName || nextName;
       store.saveData();
-      // alert("昵称修改成功");
+      toast.success("昵称修改成功");
       showRenameModal.value = false;
     } else {
-      alert("修改失败: " + (await res.text()));
+      toast.error("修改失败: " + (await res.text()));
     }
   } catch (e: unknown) {
-    alert("请求错误: " + (e as Error).message);
+    toast.error("请求错误: " + (e as Error).message);
   } finally {
     isUpdatingProfile.value = false;
   }
@@ -520,7 +522,7 @@ const deleteMusicFile = async (filePath: string) => {
   } catch (e: unknown) {
     console.error(e);
     const msg = e instanceof Error ? e.message : String(e);
-    alert("删除失败: " + msg);
+    toast.error("删除失败: " + msg);
   }
 };
 
@@ -583,15 +585,13 @@ const checkDockerConnection = async () => {
     const res = await fetch("/api/docker/info", { headers });
     const data = await res.json();
     if (data.success) {
-      alert(
-        `连接成功!\n\nSocket: ${data.socketPath}\n版本: ${data.version.Version}\n系统: ${data.info.OSType} / ${data.info.Architecture}\n容器: ${data.info.Containers}\n名称: ${data.info.Name}`,
-      );
+      toast.success(`Docker 连接成功! Socket: ${data.socketPath}, 版本: ${data.version.Version}`);
     } else {
-      alert(formatDockerConnectionError(data.error || "Docker 不可用", data.socketPath));
+      toast.error(formatDockerConnectionError(data.error || "Docker 不可用", data.socketPath));
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    alert("网络错误: " + msg);
+    toast.error("网络错误: " + msg);
   }
 };
 
@@ -618,7 +618,7 @@ const exportDockerLogs = async () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    alert("导出失败: " + msg);
+    toast.error("导出失败: " + msg);
   } finally {
     isExportingDockerLogs.value = false;
   }
@@ -651,20 +651,20 @@ const handleLogin = async () => {
   try {
     const success = await store.login("admin", passwordInput.value);
     if (success) {
-      alert("登录成功！");
+      toast.success("登录成功！");
       passwordInput.value = "";
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "密码错误！";
-    alert(msg);
+    toast.error(msg);
   }
 };
 const handleChangePassword = () => {
-  if (!newPasswordInput.value || newPasswordInput.value.length < 4) return alert("密码至少4位");
+  if (!newPasswordInput.value || newPasswordInput.value.length < 4) return toast.error("密码至少4位");
   requestAuth(async () => {
     store.changePassword(newPasswordInput.value);
     await store.saveData(true);
-    alert("密码修改成功");
+    toast.success("密码修改成功");
     newPasswordInput.value = "";
   }, "请输入当前密码以确认修改");
 };
@@ -681,9 +681,7 @@ const onMobileDockerDisplayChange = (e: Event) => {
 const handleUltrawideChange = (e: Event) => {
   const checked = (e.target as HTMLInputElement).checked;
   if (checked) {
-    alert(
-      "温馨提示：\n1. 分辨率比例判定依据是显示器的物理分辨率或浏览器窗口大小。\n2. 开启此功能后，在分屏显示（如左右并排）时，布局效果可能会变差。\n3. 此模式最适合多屏用户，或将 FlatNas 作为主力办公面板使用的用户。",
-    );
+    toast.info("温馨提示：超宽屏模式最适合多屏用户，分屏显示时布局效果可能变差");
   }
 };
 
@@ -707,15 +705,15 @@ const loadUsers = async () => {
 };
 
 const handleAddUser = async () => {
-  if (!newUser.value || !newPwd.value) return alert("请输入用户名和密码");
+  if (!newUser.value || !newPwd.value) return toast.error("请输入用户名和密码");
   try {
     await store.addUser(newUser.value, newPwd.value);
-    alert("添加成功");
+    toast.success("添加成功");
     newUser.value = "";
     newPwd.value = "";
     loadUsers();
   } catch (e: unknown) {
-    alert((e as Error).message || "添加失败");
+    toast.error((e as Error).message || "添加失败");
   }
 };
 
@@ -723,21 +721,21 @@ const handleDeleteUser = async (u: string) => {
   if (!confirm(`确定删除用户 ${u} 吗？`)) return;
   try {
     await store.deleteUser(u);
-    alert("删除成功");
+    toast.success("删除成功");
     loadUsers();
   } catch {
-    alert("删除失败");
+    toast.error("删除失败");
   }
 };
 
 const handleUploadLicense = async () => {
-  if (!licenseKey.value) return alert("请输入密钥");
+  if (!licenseKey.value) return toast.error("请输入密钥");
   try {
     await store.uploadLicense(licenseKey.value);
-    alert("密钥导入成功，限制已解除");
+    toast.success("密钥导入成功，限制已解除");
     licenseKey.value = "";
   } catch (e: unknown) {
-    alert((e as Error).message || "导入失败");
+    toast.error((e as Error).message || "导入失败");
   }
 };
 
@@ -768,13 +766,13 @@ const handleGenerateInviteCode = async () => {
       newInviteExpiresIn.value,
       newInviteDescription.value
     );
-    alert(`邀请码已生成: ${code.code}`);
+    toast.success(`邀请码已生成: ${code.code}`);
     newInviteMaxUses.value = 0;
     newInviteExpiresIn.value = 0;
     newInviteDescription.value = "";
     loadInviteCodes();
   } catch (e: unknown) {
-    alert((e as Error).message || "生成失败");
+    toast.error((e as Error).message || "生成失败");
   }
 };
 
@@ -782,10 +780,10 @@ const handleDeleteInviteCode = async (code: string) => {
   if (!confirm(`确定删除邀请码 ${code} 吗？`)) return;
   try {
     await store.deleteInviteCode(code);
-    alert("删除成功");
+    toast.success("删除成功");
     loadInviteCodes();
   } catch (e: unknown) {
-    alert((e as Error).message ||"删除失败");
+    toast.error((e as Error).message ||"删除失败");
   }
 };
 
@@ -808,7 +806,7 @@ const performAuthModeSwitch = async (newMode: string) => {
     close();
     store.logout();
   } else {
-    alert("切换失败，请检查权限");
+    toast.error("切换失败，请检查权限");
   }
 };
 
@@ -851,7 +849,7 @@ const saveVersion = async () => {
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
-      alert("保存版本失败: " + (d.error || r.status));
+      toast.error("保存版本失败: " + (d.error || r.status));
       return;
     }
     versionLabel.value = "";
@@ -874,7 +872,7 @@ const restoreVersion = async (id: string) => {
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
-      alert("恢复失败: " + (d.error || r.status));
+      toast.error("恢复失败: " + (d.error || r.status));
       return;
     }
     window.location.reload();
@@ -894,7 +892,7 @@ const deleteVersion = async (id: string) => {
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
-      alert("删除失败: " + (d.error || r.status));
+      toast.error("删除失败: " + (d.error || r.status));
       return;
     }
     await fetchVersions();
@@ -915,7 +913,7 @@ const getWebhookUrl = () => {
 
 const copyWebhookUrl = () => {
   navigator.clipboard.writeText(getWebhookUrl()).then(() => {
-    alert("已复制 Webhook 地址");
+    toast.success("已复制 Webhook 地址");
   });
 };
 
@@ -1017,9 +1015,9 @@ const restoreMissingWidgets = () => {
 
   if (addedCount > 0) {
     store.saveData();
-    alert(`已恢复 ${addedCount} 个缺失的组件`);
+    toast.success(`已恢复 ${addedCount} 个缺失的组件`);
   } else {
-    alert("未发现缺失的核心组件");
+    toast.info("未发现缺失的核心组件");
   }
 };
 
@@ -1053,7 +1051,7 @@ const addAmapWeatherWidget = () => {
     isPublic: true,
   });
   store.saveData();
-  alert("已添加高德天气组件，请在组件上配置 API Key");
+  toast.info("已添加高德天气组件，请在组件上配置 API Key");
 };
 
 const addMusicWidget = () => {
@@ -1152,7 +1150,7 @@ const handleExport = async () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert("导出失败");
+    toast.error("导出失败");
     console.error("[SettingsModal][Export] failed", e);
   }
 };
@@ -1313,10 +1311,10 @@ const handleFileChange = (event: Event) => {
         body: JSON.stringify(data),
       });
       if (!r.ok) throw new Error("import_post_failed:" + r.status);
-      alert("导入成功！");
+      toast.success("导入成功！");
       window.location.reload();
     } catch (err) {
-      alert("导入失败，请检查文件格式是否为 JSON。");
+      toast.error("导入失败，请检查文件格式是否为 JSON。");
       console.error("[SettingsModal][Import] failed", err);
     } finally {
       if (fileInput.value) fileInput.value.value = "";
@@ -1348,7 +1346,7 @@ const handleReset = async () => {
       window.location.reload();
     } catch (e: unknown) {
       const err = e as Error;
-      alert("恢复失败: " + (err.message || "未知错误"));
+      toast.error("恢复失败: " + (err.message || "未知错误"));
       console.error("[SettingsModal][Reset] failed", e);
     }
   }, "请输入密码以确认恢复初始化");
@@ -1378,7 +1376,7 @@ const handleSaveAsDefault = async () => {
       }, 2000);
     } catch (e: unknown) {
       const err = e as Error;
-      alert("保存失败: " + (err.message || "未知错误"));
+      toast.error("保存失败: " + (err.message || "未知错误"));
       console.error("[SettingsModal][SaveDefault] failed", e);
     }
   }, "请输入密码以确认保存默认模板");
@@ -3795,7 +3793,7 @@ watch(activeTab, (val) => {
                   placeholder="// 输入自定义 JS 代码
 console.log('Hello from Custom JS!');
 document.querySelector('.card-item').addEventListener('click', () => {
-  alert('Clicked!');
+  // Debug click handled
 });"
                   @change="store.updateCustomScripts()"
                 />

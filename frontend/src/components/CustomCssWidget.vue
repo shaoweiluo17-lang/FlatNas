@@ -2,12 +2,14 @@
 import { ref, onMounted, watch, computed } from "vue";
 import type { WidgetConfig } from "../types";
 import { useMainStore } from "@/stores/main";
+import { useToast } from "../composables/useToast";
 
 const props = defineProps<{
   widget: WidgetConfig;
 }>();
 
 const store = useMainStore();
+const toast = useToast();
 const isEditing = ref(false);
 const canEdit = computed(() => store.isLogged);
 
@@ -71,7 +73,7 @@ const copyPrompt = () => {
 2. 风格现代简约，圆角设计。
 3. 请分别提供 HTML 和 CSS 代码。`;
   navigator.clipboard.writeText(text).then(() => {
-    alert("提示词已复制到剪贴板，快去发送给 AI 吧！");
+    toast.success("提示词已复制到剪贴板，快去发送给 AI 吧！");
   });
 };
 

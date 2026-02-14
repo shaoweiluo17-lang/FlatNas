@@ -4,6 +4,7 @@ import { VueCropper } from "vue-cropper";
 import "vue-cropper/dist/index.css";
 import WallpaperLibrary from "./WallpaperLibrary.vue";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +23,7 @@ const props = withDefaults(
 );
 const emit = defineEmits(["update:modelValue"]);
 const store = useMainStore();
+const toast = useToast();
 
 const showCropper = ref(false);
 const showLibrary = ref(false);
@@ -51,7 +53,7 @@ const onFileChange = (event: Event) => {
   if (!file) return;
 
   if (file.size > 5 * 1024 * 1024) {
-    alert("图片太大啦，请上传小于 5MB 的图片");
+    toast.error("图片太大啦，请上传小于 5MB 的图片");
     return;
   }
 

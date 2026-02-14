@@ -4,11 +4,13 @@ import { ref, nextTick, watch, onMounted, computed } from "vue";
 import { useStorage } from "@vueuse/core";
 import type { WidgetConfig, BookmarkItem, BookmarkCategory } from "@/types";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 import { isInternalDomain, processSecurityUrl } from "../utils/security";
 import { parseBookmarks } from "../utils/bookmark";
 
 const props = defineProps<{ widget: WidgetConfig }>();
 const store = useMainStore();
+const toast = useToast();
 
 const searchQuery = ref("");
 
@@ -120,13 +122,13 @@ const handleFileUpload = (event: Event) => {
           defaultCat.children.push(...links);
         }
 
-        alert(`成功导入 ${newItems.length} 个书签`);
+        toast.success(`成功导入 ${newItems.length} 个书签`);
       } else {
-        alert("未找到可导入的书签");
+        toast.info("未找到可导入的书签");
       }
     } catch (error) {
       console.error("Import failed", error);
-      alert("导入失败，请检查文件格式");
+      toast.error("导入失败，请检查文件格式");
     }
   };
   reader.readAsText(file);
@@ -288,7 +290,7 @@ const openUrl = (url: string) => {
   // Security Rule: Intercept unlogged users
   if (!store.isLogged) {
     if (isInternalDomain(url)) {
-      alert("为了您的安全，未登录状态下禁止访问内网资源");
+      toast.warning("为了您的安全，未登录状态下禁止访问内网资源");
       return;
     }
     const targetUrl = processSecurityUrl(url);

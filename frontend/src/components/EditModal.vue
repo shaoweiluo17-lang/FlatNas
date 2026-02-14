@@ -2,6 +2,7 @@
 import { ref, watch, computed, shallowRef } from "vue";
 import type { NavItem, SimpleIcon, AliIcon } from "@/types";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 import IconUploader from "./IconUploader.vue";
 import IconSelectionModal from "./IconSelectionModal.vue";
 import Fuse from "fuse.js";
@@ -17,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits(["update:show", "save"]);
 
 const store = useMainStore();
+const toast = useToast();
 
 const isVertical = computed(() => {
   const layout = props.groupId
@@ -358,7 +360,7 @@ const autoAdaptIcon = async () => {
     searchTerm = form.value.title.trim();
   }
 
-  if (!searchTerm) return alert("请先填写链接或标题作为搜索关键词！");
+  if (!searchTerm) return toast.error("请先填写链接或标题作为搜索关键词！");
 
   isFetching.value = true;
   iconType.value = "image";
@@ -473,10 +475,10 @@ const autoAdaptIcon = async () => {
       }
     }
 
-    alert("未找到适配的图标，尝试使用自动抓取功能？");
+    toast.info("未找到适配的图标，尝试使用自动抓取功能？");
   } catch (e) {
     console.error(e);
-    alert("搜索失败，请检查网络");
+    toast.error("搜索失败，请检查网络");
   } finally {
     isFetching.value = false;
   }
@@ -509,7 +511,7 @@ const networkMatch = async () => {
     }
   }
 
-  if (!searchTerm) return alert("请输入标题或链接后重试！");
+  if (!searchTerm) return toast.error("请输入标题或链接后重试！");
 
   await searchAliIcons(searchTerm);
 };
@@ -544,14 +546,14 @@ const searchAliIcons = async (searchTerm: string) => {
           showIconSelection.value = true;
         }
       } else {
-        alert("未找到匹配的网络图标");
+        toast.info("未找到匹配的网络图标");
       }
     } else {
-      alert("获取图标库失败，请检查网络");
+      toast.error("获取图标库失败，请检查网络");
     }
   } catch (e) {
     console.error(e);
-    alert("搜索失败");
+    toast.error("搜索失败");
   } finally {
     isFetching.value = false;
   }
@@ -560,9 +562,9 @@ const searchAliIcons = async (searchTerm: string) => {
 // 二级域名匹配
 const domainMatch = () => {
   const targetUrl = form.value.url || form.value.lanUrl;
-  if (!targetUrl) return alert("请先填写链接！");
+  if (!targetUrl) return toast.error("请先填写链接！");
   const keyword = extractKeywordFromUrl(targetUrl);
-  if (!keyword) return alert("无法从链接提取有效关键词");
+  if (!keyword) return toast.error("无法从链接提取有效关键词");
   searchAliIcons(keyword);
 };
 
@@ -590,7 +592,7 @@ const fetchBase64Icon = async (url: string): Promise<string | null> => {
 // 自动抓取网站图标
 const autoFetchIcon = async () => {
   const targetUrl = form.value.url || form.value.lanUrl;
-  if (!targetUrl) return alert("请先填写链接！");
+  if (!targetUrl) return toast.error("请先填写链接！");
 
   isFetching.value = true;
   iconType.value = "image"; // 自动切换到图片模式
@@ -631,7 +633,7 @@ const autoFetchIcon = async () => {
       iconType.value = "emoji";
     }
   } catch {
-    alert("链接格式错误，无法抓取");
+    toast.error("链接格式错误，无法抓取");
     isFetching.value = false;
   } finally {
     isFetching.value = false;
@@ -837,7 +839,7 @@ const cacheIconToLocal = async (icon: string): Promise<string | null> => {
 
 // 提交保存
 const submit = async () => {
-  if (!form.value.title && !form.value.url) return alert("标题和链接总得写一个吧！");
+  if (!form.value.title && !form.value.url) return toast.error("标题和链接总得写一个吧！");
 
   isSaving.value = true;
   try {

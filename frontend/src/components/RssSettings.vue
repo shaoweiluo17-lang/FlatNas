@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 import type { RssFeed, RssCategory, WidgetConfig } from "@/types";
 
 const store = useMainStore();
+const toast = useToast();
 
 const rssWidget = computed(() => store.widgets.find((w: WidgetConfig) => w.type === "rss"));
 
@@ -38,7 +40,7 @@ const editRss = (feed?: RssFeed) => {
 };
 
 const saveRss = () => {
-  if (!rssForm.value.title || !rssForm.value.url) return alert("请填写标题和 URL");
+  if (!rssForm.value.title || !rssForm.value.url) return toast.error("请填写标题和 URL");
 
   const tags = rssForm.value.tags
     .split(/[,，]/)
