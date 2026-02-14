@@ -67,10 +67,9 @@ func Login(c *gin.Context) {
 				return
 			}
 		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found or password incorrect"})
-			return
-		}
-	} else {
+						c.JSON(http.StatusUnauthorized, gin.H{"error": "用户不存在或密码错误"})
+						return
+					}	} else {
 		// User exists logic...
 		storedPwd := user.Password
 		if storedPwd == "" {
@@ -138,12 +137,12 @@ func Register(c *gin.Context) {
 	}
 
 	if req.Username == "" || req.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名和密码不能为空"})
 		return
 	}
 
 	if req.Username == "admin" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot register as admin"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不能注册为管理员账号"})
 		return
 	}
 
@@ -152,7 +151,7 @@ func Register(c *gin.Context) {
 	utils.ReadJSON(config.SystemConfigFile, &sysConfig)
 
 	if !sysConfig.AllowRegistration && req.InviteCode == "" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Registration is closed"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "注册功能已关闭"})
 		return
 	}
 
@@ -164,15 +163,18 @@ func Register(c *gin.Context) {
 
 		validCode := false
 		var codeIndex = -1
+		var invalidReason string
 
 		for i, code := range inviteCodes {
 			if code.Code == req.InviteCode && code.IsActive {
 				// Check if expired
 				if code.ExpiresAt > 0 && code.ExpiresAt < time.Now().Unix() {
+					invalidReason = "邀请码已过期"
 					continue
 				}
 				// Check if max uses reached
 				if code.MaxUses > 0 && code.UsedCount >= code.MaxUses {
+					invalidReason = "邀请码使用次数已达上限"
 					continue
 				}
 				validCode = true
@@ -182,7 +184,11 @@ func Register(c *gin.Context) {
 		}
 
 		if !validCode {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Invalid or expired invite code"})
+			if invalidReason != "" {
+				c.JSON(http.StatusForbidden, gin.H{"error": invalidReason})
+			} else {
+				c.JSON(http.StatusForbidden, gin.H{"error": "无效的邀请码"})
+			}
 			return
 		}
 
@@ -193,7 +199,7 @@ func Register(c *gin.Context) {
 
 	userFile := filepath.Join(config.UsersDir, req.Username+".json")
 	if _, err := os.Stat(userFile); err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
 		return
 	}
 
@@ -249,18 +255,18 @@ func AddUser(c *gin.Context) {
 	}
 
 	if req.Username == "" || req.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名和密码不能为空"})
 		return
 	}
 
 	if req.Username == "admin" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot add admin user manually"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不能手动添加管理员账号"})
 		return
 	}
 
 	userFile := filepath.Join(config.UsersDir, req.Username+".json")
 	if _, err := os.Stat(userFile); err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
 		return
 	}
 

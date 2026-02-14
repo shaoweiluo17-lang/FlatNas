@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+import { ref, watch, nextTick, computed } from "vue";
 import { useMainStore } from "../stores/main";
+import { useToast } from "../composables/useToast";
 
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits(["update:show"]);
 const store = useMainStore();
+const toast = useToast();
 
 const username = ref("");
 const password = ref("");
 const inviteCode = ref("");
 const isRegister = ref(false);
 const inputRef = ref<HTMLInputElement | null>(null);
+
+// 表单错误提示
+const formError = ref("");
 
 // 监听打开：一旦打开，自动聚焦输入框，并清空旧密码
 watch(
@@ -20,6 +25,7 @@ watch(
       username.value = "";
       password.value = "";
       isRegister.value = false;
+      formError.value = "";
       nextTick(() => {
         // Focus username input if visible, else password
         if (store.systemConfig.authMode === "multi") {
@@ -37,13 +43,15 @@ watch(
 const close = () => emit("update:show", false);
 
 const handleSubmit = async () => {
+  formError.value = "";
+
   // If single user mode, username can be empty (defaults to admin on server)
   if (store.systemConfig.authMode === "multi" && !username.value.trim()) {
-    alert("请输入用户名");
+    formError.value = "请输入用户名";
     return;
   }
   if (!password.value) {
-    alert("请输入密码");
+    formError.value = "请输入密码";
     return;
   }
 
@@ -51,14 +59,15 @@ const handleSubmit = async () => {
     if (isRegister.value) {
       // Check if registration is allowed
       if (!store.systemConfig.allowRegistration && !inviteCode.value.trim()) {
-        alert("注册功能已关闭，请输入邀请码或联系管理员");
+        formError.value = "注册功能已关闭，请输入邀请码或联系管理员";
         return;
       }
       await store.register(username.value, password.value, inviteCode.value);
-      alert("注册成功，请登录");
+      toast.success("注册成功，请登录");
       isRegister.value = false;
       password.value = "";
       inviteCode.value = "";
+      formError.value = "";
     } else {
       const success = await store.login(username.value, password.value);
       if (success) {
@@ -67,9 +76,15 @@ const handleSubmit = async () => {
     }
   } catch (e: unknown) {
     const err = e as Error;
-    alert(err.message || "操作失败！");
+    const errorMsg = err.message || "操作失败！";
+
+    // 根据错误类型显示不同提示
+    if (errorMsg.includes("用户名") || errorMsg.includes("密码") || errorMsg.includes("邀请码") || errorMsg.includes("注册")) {
+      formError.value = errorMsg;
+    } else {
+      toast.error(errorMsg);
+    }
     password.value = "";
-    // inputRef.value?.focus() // Focus password again
   }
 };
 </script>
@@ -104,6 +119,24 @@ const handleSubmit = async () => {
       </div>
 
       <div class="p-6">
+        <!-- 内联错误提示 -->
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-2"
+        >
+          <div
+            v-if="formError"
+            class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center gap-2"
+          >
+            <span class="text-red-500">⚠</span>
+            <span>{{ formError }}</span>
+          </div>
+        </Transition>
+
         <div class="mb-5 space-y-4">
           <div v-if="store.systemConfig.authMode === 'multi'">
             <input
@@ -144,7 +177,7 @@ const handleSubmit = async () => {
 
         <div class="mt-4 text-center" v-if="store.systemConfig.authMode === 'multi'">
           <button
-            @click="isRegister = !isRegister"
+            @click="isRegister = !isRegister; formError = ''"
             class="text-sm text-gray-500 hover:text-gray-800 hover:underline transition-colors"
           >
             {{ isRegister ? "已有账号？去登录" : "没有账号？去注册" }}

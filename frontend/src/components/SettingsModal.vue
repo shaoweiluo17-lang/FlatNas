@@ -694,7 +694,7 @@ const newPwd = ref("");
 const licenseKey = ref("");
 
 // Invite Code Management
-const inviteCodes = ref<any[]>([]);
+const inviteCodes = ref<string[]>([]);
 const newInviteMaxUses = ref(0);
 const newInviteExpiresIn = ref(0);
 const newInviteDescription = ref("");
@@ -785,7 +785,7 @@ const handleDeleteInviteCode = async (code: string) => {
     alert("删除成功");
     loadInviteCodes();
   } catch (e: unknown) {
-    alert("删除失败");
+    alert((e as Error).message ||"删除失败");
   }
 };
 

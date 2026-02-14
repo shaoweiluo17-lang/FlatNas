@@ -336,6 +336,9 @@ func UpdateSystemConfig(c *gin.Context) {
 	if v, ok := payload["dockerHost"].(string); ok {
 		sysConfig.DockerHost = v
 	}
+	if v, ok := payload["allowRegistration"].(bool); ok {
+		sysConfig.AllowRegistration = v
+	}
 
 	if err := utils.WriteJSON(config.SystemConfigFile, sysConfig); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update system config"})

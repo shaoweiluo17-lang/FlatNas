@@ -2,7 +2,7 @@
   "appConfig": {
     "amapKey": "",
     "autoPlayMusic": false,
-    "autoUltrawide": false,
+    "autoUltrawide": true,
     "background": "https://bing.biturl.top/?resolution=1920\u0026format=image\u0026index=0\u0026mkt=zh-CN",
     "backgroundBlur": 5,
     "backgroundMask": 0.1,
@@ -765,7 +765,7 @@
       "data": {
         "content": "1.0.76dev\n修改了一些布局\n优化了内外网判定逻辑\n",
         "mode": "simple",
-        "updatedAt": 1771042461502
+        "updatedAt": 1771046950221
       },
       "enable": true,
       "h": 2,
@@ -847,7 +847,7 @@
     {
       "colSpan": 1,
       "data": {
-        "style": "day"
+        "style": "month-lunar"
       },
       "enable": true,
       "h": 2,
@@ -982,11 +982,23 @@
         "username": ""
       },
       "enable": false,
+      "h": 1,
       "hideOnMobile": true,
       "id": "music-1767286391471",
       "isPublic": false,
+      "layouts": {
+        "desktop": {
+          "h": 1,
+          "w": 1,
+          "x": 0,
+          "y": 2
+        }
+      },
       "rowSpan": 1,
-      "type": "music"
+      "type": "music",
+      "w": 1,
+      "x": 0,
+      "y": 2
     },
     {
       "colSpan": 1,
@@ -995,6 +1007,31 @@
       "isPublic": true,
       "rowSpan": 1,
       "type": "status-monitor"
+    },
+    {
+      "colSpan": 4,
+      "data": {
+        "css": ".my-custom-component {\n  padding: 10px;\n  background: linear-gradient(to right, #e0eafc, #cfdef3);\n  border-radius: 8px;\n  text-align: center;\n  height: 100%;\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n}\n.my-custom-component h3 {\n  margin: 0 0 5px 0;\n  color: #333;\n}",
+        "html": "\u003cdiv class=\"my-custom-component\"\u003e\n  \u003ch3\u003e自定义组件\u003c/h3\u003e\n  \u003cp\u003e点击右上角编辑按钮修改内容\u003c/p\u003e\n\u003c/div\u003e",
+        "title": "自定义组件"
+      },
+      "enable": true,
+      "h": 3,
+      "id": "custom-css-1771046356785",
+      "isPublic": true,
+      "layouts": {
+        "desktop": {
+          "h": 3,
+          "w": 4,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "rowSpan": 3,
+      "type": "custom-css",
+      "w": 4,
+      "x": 0,
+      "y": 2
     },
     {
       "colSpan": 1,
