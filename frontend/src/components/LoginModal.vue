@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from "vue";
+import { ref, watch, nextTick } from "vue";
 import { useMainStore } from "../stores/main";
 import { useToast } from "../composables/useToast";
 
