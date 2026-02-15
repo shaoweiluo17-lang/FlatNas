@@ -25,50 +25,38 @@ chrome.action.onClicked.addListener((tab) => {
   });
 });
 
-// 监听新标签页打开
-chrome.tabs.onCreated.addListener((tab) => {
-  console.log('[FlatNas Extension] Tab created:', tab.id, tab.url, tab.pendingUrl);
+// 监听新标签页更新事件
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  console.log('[FlatNas Extension] Tab updated:', tabId, 'status:', changeInfo.status, 'url:', tab.url, 'pendingUrl:', tab.pendingUrl);
 
-  chrome.storage.local.get(['flatnasUrl', 'autoOpen'], (result) => {
-    const autoOpen = result.autoOpen !== false;
-    const url = result.flatnasUrl || 'http://localhost:3000';
-
-    console.log('[FlatNas Extension] Auto-open setting:', autoOpen);
-
-    if (autoOpen) {
-      // 延迟执行，确保标签页完全创建
-      setTimeout(() => {
-        chrome.tabs.get(tab.id, (updatedTab) => {
-          console.log('[FlatNas Extension] Updated tab info:', updatedTab.url, updatedTab.pendingUrl);
-
-          // 检查是否是新标签页
-          if (updatedTab.url === 'chrome://newtab/' ||
-              updatedTab.pendingUrl === 'chrome://newtab/' ||
-              updatedTab.url === '' ||
-              updatedTab.pendingUrl === '') {
-            console.log('[FlatNas Extension] Redirecting new tab to FlatNas:', url);
-            chrome.tabs.update(tab.id, { url: url });
-          }
-        });
-      }, 100);
-    }
-  });
-});
-
-// 监听导航完成事件（作为备用方案）
-chrome.webNavigation.onCompleted.addListener((details) => {
-  if (details.frameId === 0) { // 只处理主框架
+  // 只在页面加载完成或加载中时处理
+  if (changeInfo.status === 'complete' || changeInfo.status === 'loading') {
     chrome.storage.local.get(['flatnasUrl', 'autoOpen'], (result) => {
       const autoOpen = result.autoOpen !== false;
       const url = result.flatnasUrl || 'http://localhost:3000';
 
-      if (autoOpen && details.url === 'chrome://newtab/') {
-        console.log('[FlatNas Extension] Navigation completed on newtab, redirecting to:', url);
-        chrome.tabs.update(details.tabId, { url: url });
+      console.log('[FlatNas Extension] Auto-open setting:', autoOpen, 'Current URL:', tab.url);
+
+      // 检查是否是新标签页（支持 chrome://newtab/ 和 edge://newtab/）
+      const isNewTab = tab.url === 'chrome://newtab/' ||
+                       tab.url === 'edge://newtab' ||
+                       tab.url === 'edge://newtab/' ||
+                       tab.url === '' ||
+                       tab.url === 'about:blank';
+
+      console.log('[FlatNas Extension] Is new tab:', isNewTab);
+
+      // 只有在 autoOpen 为 true 且是新标签页时才跳转
+      if (autoOpen && isNewTab) {
+        console.log('[FlatNas Extension] Redirecting new tab to FlatNas:', url);
+        chrome.tabs.update(tabId, { url: url });
       }
+      // 如果 autoOpen 为 false，不做任何操作，浏览器会显示默认新标签页
     });
   }
 });
+
+
 
 // 监听存储变化
 chrome.storage.onChanged.addListener((changes, area) => {
