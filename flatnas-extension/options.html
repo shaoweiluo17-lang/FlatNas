@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlatNas 设置</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #555;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="url"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input[type="text"]:focus,
+    .form-group input[type="url"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .form-group .help {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+
+    .form-group .checkbox {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .form-group .checkbox label {
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    .button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .button-primary {
+      background: #667eea;
+      color: #fff;
+    }
+
+    .button-primary:hover {
+      background: #5568d3;
+    }
+
+    .button-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .button-secondary:hover {
+      background: #d0d0d0;
+    }
+
+    .message {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>FlatNas 设置</h1>
+      <p>配置您的个人导航页与仪表盘系统</p>
+    </div>
+
+    <div class="content">
+      <div class="form-group">
+        <label for="flatnasUrl">FlatNas 服务地址</label>
+        <input type="url" id="flatnasUrl" placeholder="http://localhost:3000" />
+        <div class="help">输入您的 FlatNas 服务地址，例如：http://localhost:3000 或 http://192.168.1.100:23000</div>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox">
+          <input type="checkbox" id="autoOpen" />
+          <label for="autoOpen">自动在新标签页中打开 FlatNas</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox">
+          <input type="checkbox" id="notifications" />
+          <label for="notifications">启用通知</label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="button button-secondary" id="resetBtn">重置默认</button>
+        <button class="button button-primary" id="saveBtn">保存设置</button>
+      </div>
+
+      <div class="message" id="message"></div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
