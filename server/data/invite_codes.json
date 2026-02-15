@@ -1,0 +1,32 @@
+[
+  {
+    "code": "bf9bbb316f6ce2b5",
+    "createdBy": "admin",
+    "createdAt": 1771039770,
+    "maxUses": 0,
+    "usedCount": 0,
+    "expiresAt": 0,
+    "isActive": true,
+    "description": ""
+  },
+  {
+    "code": "acfe1ee9deee5796",
+    "createdBy": "admin",
+    "createdAt": 1771046813,
+    "maxUses": 5,
+    "usedCount": 1,
+    "expiresAt": 1771651613,
+    "isActive": true,
+    "description": ""
+  },
+  {
+    "code": "1a45522b33db6640",
+    "createdBy": "admin",
+    "createdAt": 1771046870,
+    "maxUses": 1,
+    "usedCount": 1,
+    "expiresAt": 0,
+    "isActive": true,
+    "description": ""
+  }
+]

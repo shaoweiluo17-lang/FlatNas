@@ -763,9 +763,9 @@
     {
       "colSpan": 1,
       "data": {
-        "content": "1.0.76dev\n修改了一些布局\n优化了内外网判定逻辑\n",
+        "content": "1.0.76dev\n修改了一些布局\n优化了内外网判定逻辑\n新增浏览器插件",
         "mode": "simple",
-        "updatedAt": 1771062542394
+        "updatedAt": 1771146433860
       },
       "enable": true,
       "h": 2,
@@ -1013,7 +1013,7 @@
       "data": {
         "customSchedule": [],
         "defaultOffWorkTime": "18:00",
-        "scheduleType": "custom",
+        "scheduleType": "weekly",
         "showWeekend": true,
         "style": "card",
         "title": "距离下班还有",

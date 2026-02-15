@@ -1,0 +1,18 @@
+{
+  "username": "aaa",
+  "password": "$2a$10$aibIN4pjS33las5fe.0ULOApUvmHvK53WFXBwOqtgt8xWoBbZ53X.",
+  "groups": null,
+  "widgets": null,
+  "appConfig": {
+    "wallpaperConfig": {
+      "enabled": false,
+      "type": ""
+    },
+    "mobileWallpaperConfig": {
+      "enabled": false,
+      "type": ""
+    }
+  },
+  "rssFeeds": null,
+  "rssCategories": null
+}
