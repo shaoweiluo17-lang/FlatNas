@@ -57,8 +57,7 @@ jobs:
           tags: |
             type=ref,event=tag
             type=raw,value=${{ env.VERSION }},enable=${{ github.ref_type == 'branch' }}
-          # 添加 latest 标签：通过 metadata-action 追加 raw 标签，非 PR 触发时生效
-          # type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
