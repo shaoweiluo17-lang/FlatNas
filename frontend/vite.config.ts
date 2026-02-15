@@ -32,6 +32,26 @@ export default defineConfig(({ mode }) => ({
     watch: {
       ignored: ['**/data/**', '**/server/**'],
     },
+    // 确保 sw.js 正确设置 Content-Type
+    headers: {
+      'Service-Worker-Allowed': '/',
+    },
+    // 添加中间件来正确处理 sw.js 的 Content-Type
+    configureServer(server: { middlewares: { use: (arg0: (req: any, res: any, next: any) => void) => void; }; }) {
+      return () => {
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/sw.js' || req.url?.endsWith('/sw.js')) {
+            res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            res.setHeader('Service-Worker-Allowed', '/');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          }
+          if (req.url === '/manifest.json') {
+            res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+          }
+          next();
+        });
+      };
+    },
     proxy: {
       // 告诉 Vite：遇到 /api 开头的请求，转给 3000 端口
       '/api': {
@@ -69,4 +89,4 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+  }));
