@@ -67,7 +67,7 @@ const handleCommand = (item: CommandItem) => {
 </script>
 
 <template>
-  <div class="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200/20 flex-wrap">
+  <div class="flex items-center gap-1 mt-0 pt-0 border-t border-gray-200/20 flex-wrap -mx-4 -mb-4 px-0 pb-0">
     <template v-for="(item, index) in commands" :key="index">
       <div v-if="item.separator" class="w-px h-4 bg-gray-400/30 mx-1"></div>
       <button

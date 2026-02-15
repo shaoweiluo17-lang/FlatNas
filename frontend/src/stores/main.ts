@@ -264,7 +264,7 @@ export const useMainStore = defineStore("main", () => {
   };
 
   // Version Check
-  const currentVersion = "1.1.1";
+  const currentVersion = "1.1.2dev1";
   const latestVersion = ref("");
   const dockerUpdateAvailable = ref(false);
   const updateCheckLastAt = useStorage<number>("flat-nas-update-check-last-at", 0);
@@ -415,6 +415,12 @@ export const useMainStore = defineStore("main", () => {
   });
 
   const CACHE_KEY = "flat-nas-data-cache";
+  const CACHE_WRITE_GUARD_MS = 15000;
+  const SERVER_SNAPSHOT_RETRY_COUNT = 3;
+  const SERVER_SNAPSHOT_RETRY_DELAY_MS = 1000;
+  const cacheLoadedAt = ref<number | null>(null);
+  const hasServerSnapshot = ref(false);
+  const deferredSaveRequested = ref(false);
 
   const saveToCache = (data: Record<string, unknown>) => {
     try {
@@ -459,6 +465,22 @@ export const useMainStore = defineStore("main", () => {
       return false;
     }
   };
+
+  const isCacheWriteGuardActive = () => {
+    if (hasServerSnapshot.value) return false;
+    if (cacheLoadedAt.value === null) return false;
+    return Date.now() - cacheLoadedAt.value < CACHE_WRITE_GUARD_MS;
+  };
+
+  const markServerSnapshotReady = () => {
+    hasServerSnapshot.value = true;
+    cacheLoadedAt.value = null;
+    if (deferredSaveRequested.value) {
+      deferredSaveRequested.value = false;
+      saveData(true);
+    }
+  };
+  const isServerSnapshotReady = computed(() => hasServerSnapshot.value);
 
   const ensureDefaultCommonGroup = () => {
     // 逻辑已移除：允许用户删除所有分组，不再强制恢复默认分组
@@ -771,39 +793,61 @@ export const useMainStore = defineStore("main", () => {
     if (isInitializing) return;
     isInitializing = true;
 
-    // Try to load from cache first for better UX (Stale-While-Revalidate)
-    loadFromCache();
+    hasServerSnapshot.value = false;
+    cacheLoadedAt.value = null;
+    deferredSaveRequested.value = false;
+
+    const cacheLoaded = loadFromCache();
+    if (cacheLoaded) {
+      cacheLoadedAt.value = Date.now();
+    }
 
     try {
-      const res = await fetch("/api/data", { headers: getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        // Handle auth mode from system config
-        if (data.systemConfig) {
-          systemConfig.value = data.systemConfig;
+      let serverSnapshotLoaded = false;
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < SERVER_SNAPSHOT_RETRY_COUNT; attempt++) {
+        try {
+          const res = await fetch("/api/data", { headers: getHeaders() });
+          if (!res.ok) {
+            lastError = new Error(`Init failed with status ${res.status}`);
+          } else {
+            const data = await res.json();
+            if (data.systemConfig) {
+              systemConfig.value = data.systemConfig;
+            }
+
+            if (data.username) {
+              username.value = data.username;
+              localStorage.setItem("flat-nas-username", data.username);
+            }
+
+            handleDataUpdate(data);
+            saveToCache(data);
+            markServerSnapshotReady();
+            serverSnapshotLoaded = true;
+
+            setTimeout(() => {
+              checkUpdate();
+              fetchLuckyStunData();
+            }, 2000);
+            break;
+          }
+        } catch (e) {
+          lastError = e;
         }
-
-        if (data.username) {
-          username.value = data.username;
-          localStorage.setItem("flat-nas-username", data.username);
+        if (attempt < SERVER_SNAPSHOT_RETRY_COUNT - 1) {
+          await new Promise((resolve) => setTimeout(resolve, SERVER_SNAPSHOT_RETRY_DELAY_MS));
         }
-
-        // If in multi-user mode and not logged in, don't load user data yet
-        // But we might need public data?
-        // Assuming /api/data returns public data if not logged in.
-
-        handleDataUpdate(data);
-        saveToCache(data);
-
-        // Defer non-critical data fetching
-        setTimeout(() => {
-          checkUpdate();
-          fetchLuckyStunData();
-        }, 2000);
       }
-    } catch (e) {
-      console.error("Init failed", e);
-      loadFromCache();
+      if (!serverSnapshotLoaded) {
+        if (lastError) {
+          console.error("Init failed", lastError);
+        }
+        const fallbackLoaded = loadFromCache();
+        if (fallbackLoaded && cacheLoadedAt.value === null) {
+          cacheLoadedAt.value = Date.now();
+        }
+      }
     } finally {
       isInitializing = false;
       if (!socketListenersBound) {
@@ -864,6 +908,10 @@ export const useMainStore = defineStore("main", () => {
 
     const doSave = async () => {
       if (isPageUnloading.value) {
+        return;
+      }
+      if (isCacheWriteGuardActive()) {
+        deferredSaveRequested.value = true;
         return;
       }
       isSaving.value = true;
@@ -1333,5 +1381,6 @@ export const useMainStore = defineStore("main", () => {
     refreshResources,
     resourceVersion,
     updateCustomScripts,
+    isServerSnapshotReady,
   };
 });

@@ -3,12 +3,22 @@ import { ref, type Ref } from 'vue';
 
 const DB_NAME = 'flatnas-memo-db';
 const STORE_NAME = 'memos';
-const DB_VERSION = 1;
+const HISTORY_STORE = 'memo_versions';
+const DB_VERSION = 2;
 
 interface MemoData {
   id: string | number;
   content: string; // The rich text HTML
   simple?: string; // Plain text
+  mode: 'simple' | 'rich';
+  updatedAt: number;
+  checksum: string;
+}
+
+export interface MemoVersion {
+  id: string;
+  widgetId: string | number;
+  content: string;
   mode: 'simple' | 'rich';
   updatedAt: number;
   checksum: string;
@@ -43,11 +53,17 @@ function getDB() {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
+        if (!db.objectStoreNames.contains(HISTORY_STORE)) {
+          const store = db.createObjectStore(HISTORY_STORE, { keyPath: 'id' });
+          store.createIndex('by-widget', 'widgetId');
+        }
       },
     });
   }
   return dbPromise;
 }
+
+const lastVersionChecksum = new Map<string | number, string>();
 
 export function useMemoPersistence(
   widgetId: string | number,
@@ -65,7 +81,7 @@ export function useMemoPersistence(
       const db = await getDB();
       const content = localData.value;
       const checksum = generateChecksum(content);
-      
+
       const data: MemoData = {
         id: widgetId,
         content,
@@ -76,16 +92,17 @@ export function useMemoPersistence(
 
       progress.value = 60;
       await db.put(STORE_NAME, data);
-      
+
       // Verify
       const saved = await db.get(STORE_NAME, widgetId);
       if (!saved || saved.checksum !== checksum) {
         throw new Error('Checksum validation failed');
       }
+      lastVersionChecksum.set(widgetId, checksum);
 
       progress.value = 100;
       status.value = 'success';
-      
+
       // Reset status after animation
       setTimeout(() => {
         status.value = 'idle';
@@ -113,8 +130,9 @@ export function useMemoPersistence(
         if (currentChecksum === data.checksum) {
           localData.value = data.content;
           mode.value = data.mode;
+          lastVersionChecksum.set(widgetId, data.checksum);
         } else {
-            reportError(new Error('Data corruption detected on load'), 'MemoPersistenceLoad');
+          reportError(new Error('Data corruption detected on load'), 'MemoPersistenceLoad');
         }
       }
     } catch (e) {
@@ -122,9 +140,55 @@ export function useMemoPersistence(
     }
   };
 
+  const saveVersionSnapshot = async (force = false) => {
+    try {
+      const db = await getDB();
+      const content = localData.value;
+      const checksum = generateChecksum(content);
+      const lastChecksum = lastVersionChecksum.get(widgetId);
+      if (!force && checksum === lastChecksum) return;
+      const updatedAt = Date.now();
+      const data: MemoVersion = {
+        id: `${widgetId}-${updatedAt}-${Math.random().toString(36).slice(2, 8)}`,
+        widgetId,
+        content,
+        mode: mode.value,
+        updatedAt,
+        checksum
+      };
+      await db.put(HISTORY_STORE, data);
+      lastVersionChecksum.set(widgetId, checksum);
+    } catch (e) {
+      reportError(e, 'MemoPersistenceSnapshot');
+    }
+  };
+
+  const loadVersions = async () => {
+    try {
+      const db = await getDB();
+      const items = await db.getAllFromIndex(HISTORY_STORE, 'by-widget', widgetId);
+      return (items as MemoVersion[]).sort((a, b) => b.updatedAt - a.updatedAt);
+    } catch (e) {
+      reportError(e, 'MemoPersistenceHistoryLoad');
+      return [];
+    }
+  };
+
+  const deleteVersion = async (versionId: string) => {
+    try {
+      const db = await getDB();
+      await db.delete(HISTORY_STORE, versionId);
+    } catch (e) {
+      reportError(e, 'MemoPersistenceHistoryDelete');
+    }
+  };
+
   return {
     saveToIndexedDB,
     loadFromIndexedDB,
+    saveVersionSnapshot,
+    loadVersions,
+    deleteVersion,
     status,
     progress
   };

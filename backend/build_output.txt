@@ -1,0 +1,16 @@
+WORK=C:\Users\80425\AppData\Local\Temp\go-build3993447036
+# get https://proxy.golang.org/github.com/containerd/log/@v/v0.1.0.mod
+# get https://proxy.golang.org/golang.org/x/net/@v/v0.49.0.mod
+# get https://proxy.golang.org/golang.org/x/crypto/@v/v0.47.0.mod
+# get https://proxy.golang.org/github.com/%21microsoft/go-winio/@v/v0.4.21.mod
+# get https://proxy.golang.org/github.com/bytedance/sonic/@v/v1.14.0.mod
+# get https://proxy.golang.org/github.com/bytedance/sonic/loader/@v/v0.3.0.mod
+# get https://proxy.golang.org/github.com/shirou/gopsutil/v3/@v/v3.24.5.mod
+# get https://proxy.golang.org/github.com/gin-gonic/gin/@v/v1.11.0.mod
+# get https://proxy.golang.org/github.com/golang-jwt/jwt/v5/@v/v5.3.1.mod
+# get https://proxy.golang.org/github.com/docker/docker/@v/v25.0.3+incompatible.mod
+# get https://proxy.golang.org/github.com/gin-contrib/cors/@v/v1.7.6.mod
+# get https://proxy.golang.org/github.com/cespare/xxhash/v2/@v/v2.3.0.mod
+# get https://proxy.golang.org/github.com/cloudwego/base64x/@v/v0.1.6.mod
+# get https://proxy.golang.org/github.com/googollee/go-socket.io/@v/v1.7.0.mod
+^C
