@@ -123,6 +123,12 @@ func main() {
 		filePath := filepath.Join(config.PublicDir, c.Request.URL.Path)
 		info, err := os.Stat(filePath)
 		if err == nil && !info.IsDir() {
+			// Force correct MIME type for sw.js and other JS files
+			if strings.HasSuffix(c.Request.URL.Path, ".js") {
+				c.Header("Content-Type", "application/javascript")
+			} else if strings.HasSuffix(c.Request.URL.Path, ".css") {
+				c.Header("Content-Type", "text/css")
+			}
 			c.File(filePath)
 			c.Abort()
 			return
