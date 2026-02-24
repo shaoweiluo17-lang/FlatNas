@@ -295,6 +295,17 @@
     },
     {
       "colSpan": 1,
+      "data": {
+        "useMock": false
+      },
+      "enable": false,
+      "id": "system-status",
+      "isPublic": true,
+      "rowSpan": 1,
+      "type": "system-status"
+    },
+    {
+      "colSpan": 1,
       "enable": false,
       "id": "docker",
       "isPublic": true,

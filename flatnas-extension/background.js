@@ -8,7 +8,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     // 首次安装时设置默认配置
     chrome.storage.local.set({
-      flatnasUrl: 'http://localhost:3000',
+      flatnasUrl: 'https://bswy.cc',
       autoOpen: true,
       notifications: true
     }, () => {
@@ -25,34 +25,70 @@ chrome.action.onClicked.addListener((tab) => {
   });
 });
 
+// 跟踪已跳转的标签页,防止重复跳转
+const redirectedTabs = new Set();
+
 // 监听新标签页更新事件
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   console.log('[FlatNas Extension] Tab updated:', tabId, 'status:', changeInfo.status, 'url:', tab.url, 'pendingUrl:', tab.pendingUrl);
 
-  // 只在页面加载完成或加载中时处理
-  if (changeInfo.status === 'complete' || changeInfo.status === 'loading') {
+  // 只在页面加载完成时处理新标签页
+  if (changeInfo.status === 'complete') {
+    // 如果已经跳转过这个标签页,不再处理
+    if (redirectedTabs.has(tabId)) {
+      console.log('[FlatNas Extension] Tab already redirected, skipping:', tabId);
+      return;
+    }
+
     chrome.storage.local.get(['flatnasUrl', 'autoOpen'], (result) => {
       const autoOpen = result.autoOpen !== false;
       const url = result.flatnasUrl || 'http://localhost:3000';
 
-      console.log('[FlatNas Extension] Auto-open setting:', autoOpen, 'Current URL:', tab.url);
+      console.log('[FlatNas Extension] Auto-open setting:', autoOpen, 'Current URL:', tab.url, 'FlatNas URL:', url);
 
-      // 检查是否是新标签页（支持 chrome://newtab/ 和 edge://newtab/）
-      const isNewTab = tab.url === 'chrome://newtab/' ||
+      // 检查是否是新标签页（支持多种浏览器的新标签页 URL）
+      const isNewTab = !tab.url ||
+                       tab.url === '' ||
+                       tab.url === 'about:blank' ||
+                       tab.url === 'chrome://newtab/' ||
                        tab.url === 'edge://newtab' ||
                        tab.url === 'edge://newtab/' ||
-                       tab.url === '' ||
-                       tab.url === 'about:blank';
+                       tab.url.startsWith('chrome://newtab') ||
+                       tab.url.startsWith('edge://newtab');
 
       console.log('[FlatNas Extension] Is new tab:', isNewTab);
 
       // 只有在 autoOpen 为 true 且是新标签页时才跳转
       if (autoOpen && isNewTab) {
         console.log('[FlatNas Extension] Redirecting new tab to FlatNas:', url);
-        chrome.tabs.update(tabId, { url: url });
+        // 标记为已跳转
+        redirectedTabs.add(tabId);
+
+        chrome.tabs.update(tabId, { url: url }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('[FlatNas Extension] Redirect error:', chrome.runtime.lastError);
+            // 如果跳转失败,从集合中移除,允许重试
+            redirectedTabs.delete(tabId);
+          } else {
+            console.log('[FlatNas Extension] Redirect successful');
+            // 3秒后从集合中移除,允许后续更新
+            setTimeout(() => {
+              redirectedTabs.delete(tabId);
+              console.log('[FlatNas Extension] Tab redirection tracking cleared:', tabId);
+            }, 3000);
+          }
+        });
       }
       // 如果 autoOpen 为 false，不做任何操作，浏览器会显示默认新标签页
     });
+  }
+});
+
+// 监听标签页关闭事件,清理跟踪记录
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (redirectedTabs.has(tabId)) {
+    redirectedTabs.delete(tabId);
+    console.log('[FlatNas Extension] Tab closed, tracking cleared:', tabId);
   }
 });
 

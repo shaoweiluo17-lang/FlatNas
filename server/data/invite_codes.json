@@ -4,7 +4,7 @@
     "createdBy": "admin",
     "createdAt": 1771039770,
     "maxUses": 0,
-    "usedCount": 0,
+    "usedCount": 3,
     "expiresAt": 0,
     "isActive": true,
     "description": ""
@@ -14,7 +14,7 @@
     "createdBy": "admin",
     "createdAt": 1771046813,
     "maxUses": 5,
-    "usedCount": 1,
+    "usedCount": 3,
     "expiresAt": 1771651613,
     "isActive": true,
     "description": ""

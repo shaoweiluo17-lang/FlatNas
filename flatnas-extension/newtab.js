@@ -6,12 +6,13 @@ chrome.storage.local.get(['flatnasUrl', 'autoOpen'], (result) => {
   const url = result.flatnasUrl || 'http://localhost:3000';
   const autoOpen = result.autoOpen !== false; // 默认启用
 
-  console.log('[FlatNas Extension] Settings:', { url, autoOpen });
+  console.log('[FlatNas Extension] Settings:', { url, autoOpen, result });
 
   if (autoOpen) {
     // 如果启用了自动打开，跳转到 FlatNas
     console.log('[FlatNas Extension] Auto-open enabled, redirecting to:', url);
     setTimeout(() => {
+      console.log('[FlatNas Extension] Performing redirect...');
       window.location.href = url;
     }, 500);
   } else {
